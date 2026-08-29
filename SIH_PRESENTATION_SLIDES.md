@@ -10,7 +10,7 @@
 * **Theme:** Smart Automation
 * **PS Category:** Software
 * **Team ID:** [Insert Team ID]
-* **Team Name:** [Insert Team Name]
+* **Team Name:** Sankalp
 
 ---
 
