@@ -1449,8 +1449,10 @@ export const KnowledgeCenter: React.FC = () => {
                   <div className="bg-white border border-[#C8892E] rounded-xl p-4 shadow-xs space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-[#FAF8F3] border border-[#E4E0D6] flex items-center justify-center text-[#C8892E] flex-shrink-0">
-                          {uploadFileName.endsWith('.csv') || uploadFileName.endsWith('.xlsx') || uploadFileName.endsWith('.xls') ? (
+                        <div className="w-10 h-10 rounded-lg bg-[#FAF8F3] border border-[#E4E0D6] flex items-center justify-center text-[#C8892E] flex-shrink-0 overflow-hidden">
+                          {uploadedFileDataUrl ? (
+                            <img src={uploadedFileDataUrl} alt="Preview" className="w-full h-full object-cover" />
+                          ) : uploadFileName.endsWith('.csv') || uploadFileName.endsWith('.xlsx') || uploadFileName.endsWith('.xls') ? (
                             <FileSpreadsheet className="w-5 h-5 text-[#16A34A]" />
                           ) : uploadFileName.endsWith('.json') || uploadFileName.endsWith('.md') ? (
                             <FileCode className="w-5 h-5 text-[#2563EB]" />
@@ -1487,6 +1489,7 @@ export const KnowledgeCenter: React.FC = () => {
                             setUploadFileName('');
                             setUploadTextContent('');
                             setUploadReason('');
+                            setUploadedFileDataUrl(null);
                             if (fileInputRef.current) fileInputRef.current.value = '';
                           }}
                           className="p-1.5 text-[#DC2626] hover:bg-[#FEF2F2] rounded-md transition-colors"
@@ -1496,6 +1499,21 @@ export const KnowledgeCenter: React.FC = () => {
                         </button>
                       </div>
                     </div>
+
+                    {/* Image Preview Box if user uploaded an image */}
+                    {uploadedFileDataUrl && (
+                      <div className="p-3 bg-[#FAF8F3] rounded-lg border border-[#E4E0D6] flex flex-col items-center justify-center gap-2">
+                        <div className="flex items-center justify-between w-full text-[11px] font-mono text-[#64748B]">
+                          <span className="font-bold text-[#141C2B]">Uploaded Image Preview:</span>
+                          <span className="text-[#16A34A] font-bold">● High Resolution Image Attached</span>
+                        </div>
+                        <img 
+                          src={uploadedFileDataUrl} 
+                          alt="Uploaded Document" 
+                          className="max-h-48 max-w-full rounded border border-[#CBD5E1] shadow-xs object-contain bg-white"
+                        />
+                      </div>
+                    )}
 
                     {/* Extracted Text Preview & Customization Toggle */}
                     <div className="border-t border-[#EFEBE2] pt-2.5">

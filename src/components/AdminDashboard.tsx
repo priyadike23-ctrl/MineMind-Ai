@@ -76,43 +76,44 @@ export const AdminDashboard: React.FC = () => {
   const isAutomationMeasured = totalProcessedVersions.length > 0;
 
   return (
-    <div id="admin-dashboard" className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-7 max-w-7xl mx-auto">
-      {/* Priority-Sorted Approval Summary Banner (As specified in Section 5.3) */}
-      <div className="bg-[#141C2B] text-white border border-[#1E293B] rounded-xl p-4 sm:p-6 shadow-md">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#1E293B]">
+    <div id="admin-dashboard" className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 max-w-7xl mx-auto">
+      {/* Priority-Sorted Approval Summary Card */}
+      <div className="bg-white border border-[#E4E0D6] rounded-2xl p-5 sm:p-7 shadow-xs space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#EFEBE2]">
           <div>
             <div className="flex items-center gap-2 text-xs font-mono text-[#C8892E] font-bold uppercase tracking-wider mb-1">
-              <span>Central Governance Priority Matrix</span>
+              <span>Central Governance</span>
               <span>·</span>
-              <span>Re-Indexing Queue</span>
+              <span>Approval Queue</span>
             </div>
-            <h2 className="font-serif font-bold text-2xl text-white flex items-center gap-2.5">
-              <span>{pendingApprovals.length} Pending Technical Approvals</span>
-            </h2>
-            <div className="flex items-center gap-3 mt-1 text-xs text-[#94A3B8]">
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444] animate-pulse" />
-                <span className="font-bold text-white">{urgentCount} Urgent</span>
-              </span>
-              <span>·</span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#EAB308]" />
-                <span className="font-bold text-white">{normalCount} Normal</span>
-              </span>
-              <span>·</span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E]" />
-                <span className="font-bold text-white">{routineCount} Routine</span>
-              </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="font-serif font-bold text-xl sm:text-2xl text-[#141C2B]">
+                {pendingApprovals.length} Pending Technical Approvals
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
+                  <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse" />
+                  <span>{urgentCount} Urgent</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
+                  <span className="w-2 h-2 rounded-full bg-[#EAB308]" />
+                  <span>{normalCount} Normal</span>
+                </span>
+                {routineCount > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
+                    <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
+                    <span>{routineCount} Routine</span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               id="btn-admin-quick-demo-mismatch"
               onClick={() => {
                 setActiveView('approval-queue');
-                // Use a short timeout to let the Approval Queue mount, then scroll and highlight CMPDI HQ-984
                 setTimeout(() => {
                   const targetElement = document.getElementById('queue-item-doc-cmpdi-hq-984') || 
                                        document.getElementById('queue-item-ver_cmpdi_hq_984_01') ||
@@ -127,66 +128,65 @@ export const AdminDashboard: React.FC = () => {
                   }
                 }, 150);
               }}
-              className="px-3.5 py-2 rounded-lg bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-3.5 py-2 rounded-lg bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
               title="Shortcut: Jump directly to the CMPDI HQ-984 Category Mismatch item in the Approval Queue"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Quick Demo: Category Mismatch</span>
+              <span>Demo Category Mismatch</span>
             </button>
 
             <button
               id="btn-admin-bulk-routine"
               onClick={() => bulkApproveRoutine()}
-              className="px-3.5 py-2 rounded-lg bg-[#243147] hover:bg-[#334155] border border-[#334155] text-xs font-semibold text-white transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Only routine/low-risk items are eligible for bulk sign-off. Urgent items remain blocked."
+              className="px-3.5 py-2 rounded-lg bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#16A34A] border border-[#BBF7D0] text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Bulk sign-off routine items"
             >
-              <Zap className="w-3.5 h-3.5 text-[#22C55E]" />
+              <Zap className="w-3.5 h-3.5 text-[#16A34A]" />
               <span>Bulk Routine Approve</span>
             </button>
 
             <button
               id="btn-admin-view-all-queue"
               onClick={() => setActiveView('approval-queue')}
-              className="px-4 py-2 rounded-lg bg-[#C8892E] hover:bg-[#B77A23] text-[#141C2B] text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-[#141C2B] hover:bg-[#1E293B] text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
-              <CheckSquare className="w-3.5 h-3.5" />
-              <span>Open Approval Queue</span>
+              <CheckSquare className="w-3.5 h-3.5 text-[#C8892E]" />
+              <span>Open Queue ({pendingApprovals.length})</span>
             </button>
           </div>
         </div>
 
-        {/* Priority Items List with AI One-Line Reasoning */}
-        <div className="mt-4 space-y-2.5">
+        {/* Priority Items List */}
+        <div className="space-y-3">
           {pendingApprovals.length === 0 ? (
-            <div className="py-4 text-center text-xs text-[#94A3B8] font-mono">
+            <div className="py-6 text-center text-xs text-[#64748B] font-mono bg-[#FAF8F3] rounded-xl border border-[#E4E0D6]">
               ✓ All subsidiary submissions are currently verified and indexed into the knowledge base.
             </div>
           ) : (
-            pendingApprovals.map(({ doc, version }) => {
+            pendingApprovals.slice(0, 5).map(({ doc, version }) => {
               const isUrgent = version.approvalPriority === 'urgent';
-              const isExpanded = expandedUrgentId === version.id;
 
               return (
                 <div 
                   key={version.id}
-                  className={`rounded-lg border p-3.5 transition-all ${
+                  className={`rounded-xl border p-4 transition-all ${
                     isUrgent 
-                      ? 'bg-[#1E1719] border-[#7F1D1D]' 
-                      : 'bg-[#192234] border-[#1E293B]'
+                      ? 'bg-[#FEF2F2]/40 border-[#FECACA]' 
+                      : 'bg-[#FAF8F3] border-[#E4E0D6]'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
-                        isUrgent ? 'bg-[#DC2626] text-white' : 'bg-[#EAB308] text-[#141C2B]'
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+                      <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full ${
+                        isUrgent ? 'bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA]' : 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
                       }`}>
-                        {isUrgent ? '🔴 URGENT REVIEW' : '🟡 STANDARD REVIEW'}
+                        {isUrgent ? 'URGENT REVIEW' : 'STANDARD REVIEW'}
                       </span>
-                      <span className="text-xs font-bold text-white truncate">
-                        {doc.title} (v{version.versionNumber}.0)
+                      <span className="text-sm font-bold text-[#141C2B] truncate">
+                        {doc.title}
                       </span>
-                      <span className="text-[10px] font-mono text-[#94A3B8] bg-[#0E1522] px-1.5 py-0.5 rounded">
-                        {doc.subsidiary}
+                      <span className="text-[10px] font-mono font-bold text-[#64748B] bg-white border border-[#E4E0D6] px-2 py-0.5 rounded">
+                        v{version.versionNumber}.0 · {doc.subsidiary}
                       </span>
                     </div>
 
@@ -196,26 +196,20 @@ export const AdminDashboard: React.FC = () => {
                           const prevVer = doc.versions.find((v: any) => v.versionNumber === version.versionNumber - 1) || doc.versions[0];
                           setCompareVersions({ v1: prevVer, v2: version, doc });
                         }}
-                        className="px-2.5 py-1 rounded bg-[#243147] hover:bg-[#334155] text-[11px] font-medium text-[#CBD5E1] transition-colors"
+                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-[#F1F5F9] border border-[#E4E0D6] text-xs font-semibold text-[#141C2B] transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
                       >
-                        Compare Diff
-                      </button>
-                      <button
-                        onClick={() => setActiveView('approval-queue')}
-                        className="p-1 text-[#94A3B8] hover:text-white"
-                        title="Open in Queue"
-                      >
-                        <ChevronRight className="w-4 h-4" />
+                        <span>Compare Diff</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-[#64748B]" />
                       </button>
                     </div>
                   </div>
 
                   {/* AI Flagged Risk Summary */}
                   {version.aiRiskReason && (
-                    <div className="mt-2.5 pt-2 border-t border-[#7F1D1D]/50 flex items-start gap-2 text-xs text-[#FCA5A5] bg-[#450A0A]/40 p-2 rounded">
-                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 text-[#EF4444] mt-0.5" />
+                    <div className="mt-3 pt-2.5 border-t border-[#FECACA] flex items-start gap-2 text-xs text-[#991B1B] bg-white p-2.5 rounded-lg border border-[#FCA5A5]/60">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0 text-[#DC2626] mt-0.5" />
                       <div>
-                        <span className="font-bold text-white">AI Governance Flag: </span>
+                        <span className="font-bold text-[#7F1D1D]">AI Governance Flag: </span>
                         <span>{version.aiRiskReason}</span>
                       </div>
                     </div>
@@ -223,6 +217,17 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               );
             })
+          )}
+
+          {pendingApprovals.length > 5 && (
+            <div className="pt-2 text-center">
+              <button
+                onClick={() => setActiveView('approval-queue')}
+                className="text-xs font-bold text-[#C8892E] hover:underline cursor-pointer"
+              >
+                + {pendingApprovals.length - 5} more pending approvals in Central Queue →
+              </button>
+            </div>
           )}
         </div>
       </div>

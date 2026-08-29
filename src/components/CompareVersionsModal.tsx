@@ -918,7 +918,7 @@ export const CompareVersionsModal: React.FC = () => {
                   {/* 1. IMAGE VIEWER WORKSPACE (When format is JPG, PNG, WEBP, etc.) */}
                   {isImage ? (
                     <div className="space-y-4">
-                      {/* Image Canvas Viewport */}
+                      {/* Image Viewer Card */}
                       <div 
                         onDragOver={(e) => { e.preventDefault(); setIsDraggingOverV2(true); }}
                         onDragLeave={() => setIsDraggingOverV2(false)}
@@ -935,89 +935,98 @@ export const CompareVersionsModal: React.FC = () => {
                             reader.readAsDataURL(file);
                           }
                         }}
-                        className={`bg-[#0B1120] border rounded-xl overflow-hidden shadow-inner relative flex flex-col transition-all ${
-                          isDraggingOverV2 ? 'border-[#38BDF8] ring-2 ring-[#38BDF8]/40' : 'border-[#1E293B]'
+                        className={`bg-white border rounded-xl overflow-hidden shadow-xs relative flex flex-col transition-all ${
+                          isDraggingOverV2 ? 'border-[#C8892E] ring-2 ring-[#C8892E]/30 bg-[#FFFBEB]/20' : 'border-[#E4E0D6]'
                         }`}
                       >
-                        {/* Inspection HUD Bar */}
-                        <div className="bg-[#0F172A] border-b border-[#1E293B] px-3 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-[#94A3B8]">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 bg-[#1E293B] text-[#38BDF8] rounded font-bold">
-                              Image Inspection Mode
+                        {/* Clean Interactive Toolbar */}
+                        <div className="bg-[#FAF8F3] border-b border-[#EFEBE2] px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                          {/* Image Action Controls */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-[#141C2B] flex items-center gap-1.5 font-mono text-xs bg-white px-2.5 py-1 rounded-md border border-[#E4E0D6] shadow-2xs">
+                              <ImageIcon className="w-3.5 h-3.5 text-[#2563EB]" />
+                              <span>Image Preview</span>
                             </span>
+
                             <button
                               onClick={() => handleReadClipboard('v2')}
-                              className="px-2 py-0.5 bg-[#C8892E] hover:bg-[#A97223] text-[#141C2B] font-bold rounded flex items-center gap-1 cursor-pointer transition-colors text-[11px]"
-                              title="Paste clipboard image directly (Ctrl+V)"
+                              className="px-2.5 py-1 bg-[#141C2B] hover:bg-[#1E293B] text-white font-medium rounded-md flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs text-[11px]"
+                              title="Paste image directly from clipboard (or press Ctrl+V)"
                             >
-                              <Clipboard className="w-3 h-3" />
+                              <Clipboard className="w-3 h-3 text-[#FCD34D]" />
                               <span>Paste (Ctrl+V)</span>
                             </button>
+
                             <button
                               onClick={() => fileInputV2Ref.current?.click()}
-                              className="px-2 py-0.5 bg-[#1E293B] hover:bg-[#334155] text-white rounded flex items-center gap-1 cursor-pointer transition-colors text-[11px]"
-                              title="Upload another image"
+                              className="px-2.5 py-1 bg-white hover:bg-[#F1F5F9] text-[#141C2B] font-medium border border-[#E4E0D6] rounded-md flex items-center gap-1.5 cursor-pointer transition-colors text-[11px]"
+                              title="Upload or replace photo"
                             >
-                              <Upload className="w-3 h-3 text-[#38BDF8]" />
-                              <span>Upload</span>
+                              <Upload className="w-3 h-3 text-[#2563EB]" />
+                              <span>Replace Photo</span>
                             </button>
                           </div>
 
+                          {/* Zoom & View Adjustments */}
                           <div className="flex items-center gap-2 flex-wrap">
-                            {/* Filter Selector */}
-                            <div className="flex items-center gap-1 bg-[#1E293B] rounded-lg px-2 py-1">
-                              <Sliders className="w-3 h-3 text-[#38BDF8]" />
+                            {/* Filter Mode */}
+                            <div className="flex items-center gap-1.5 bg-white border border-[#E4E0D6] rounded-md px-2 py-1">
+                              <Sliders className="w-3 h-3 text-[#64748B]" />
                               <select
                                 value={imageFilter}
                                 onChange={(e) => setImageFilter(e.target.value as any)}
-                                className="bg-transparent text-[#E2E8F0] text-[11px] focus:outline-none cursor-pointer"
+                                className="bg-transparent text-[#141C2B] text-[11px] focus:outline-none cursor-pointer font-medium"
                               >
-                                <option value="normal" className="bg-[#1E293B]">Normal / Standard</option>
-                                <option value="contrast" className="bg-[#1E293B]">High Contrast (Geological Strata)</option>
-                                <option value="grayscale" className="bg-[#1E293B]">Monochrome Grayscale</option>
-                                <option value="invert" className="bg-[#1E293B]">Inverted (Mine Map Negative)</option>
+                                <option value="normal">Normal View</option>
+                                <option value="contrast">High Contrast</option>
+                                <option value="grayscale">Grayscale</option>
+                                <option value="invert">Inverted Color</option>
                               </select>
                             </div>
 
                             {/* Zoom Controls */}
-                            <div className="flex items-center gap-1 bg-[#1E293B] rounded-lg p-0.5">
+                            <div className="flex items-center bg-white border border-[#E4E0D6] rounded-md overflow-hidden">
                               <button
                                 onClick={() => setImageZoom(prev => Math.max(0.5, Number((prev - 0.25).toFixed(2))))}
-                                className="p-1 hover:bg-[#334155] rounded text-white cursor-pointer transition-colors"
+                                className="px-2 py-1 hover:bg-[#F1F5F9] text-[#141C2B] cursor-pointer transition-colors"
                                 title="Zoom Out"
                               >
                                 <ZoomOut className="w-3.5 h-3.5" />
                               </button>
-                              <span className="px-1.5 text-[11px] font-bold text-[#F8FAFC]">
+                              <button
+                                onClick={() => setImageZoom(1)}
+                                className="px-2 py-1 text-[11px] font-mono font-bold text-[#141C2B] hover:bg-[#F1F5F9] cursor-pointer border-x border-[#E4E0D6]"
+                                title="Reset to 100%"
+                              >
                                 {Math.round(imageZoom * 100)}%
-                              </span>
+                              </button>
                               <button
                                 onClick={() => setImageZoom(prev => Math.min(3.5, Number((prev + 0.25).toFixed(2))))}
-                                className="p-1 hover:bg-[#334155] rounded text-white cursor-pointer transition-colors"
+                                className="px-2 py-1 hover:bg-[#F1F5F9] text-[#141C2B] cursor-pointer transition-colors"
                                 title="Zoom In"
                               >
                                 <ZoomIn className="w-3.5 h-3.5" />
                               </button>
                             </div>
 
-                            {/* Rotate Control */}
+                            {/* Rotate */}
                             <button
                               onClick={() => setImageRotation(prev => (prev + 90) % 360)}
-                              className="p-1.5 bg-[#1E293B] hover:bg-[#334155] rounded-lg text-[#E2E8F0] cursor-pointer transition-colors flex items-center gap-1 text-[11px]"
-                              title="Rotate 90° Clockwise"
+                              className="px-2 py-1 bg-white hover:bg-[#F1F5F9] border border-[#E4E0D6] rounded-md text-[#141C2B] cursor-pointer transition-colors flex items-center gap-1 text-[11px]"
+                              title="Rotate 90° clockwise"
                             >
-                              <RotateCw className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">{imageRotation}°</span>
+                              <RotateCw className="w-3.5 h-3.5 text-[#64748B]" />
+                              <span>{imageRotation}°</span>
                             </button>
 
-                            {/* Open in New Tab */}
+                            {/* Fullscreen / New Tab */}
                             <button
-                              onClick={() => openImageInNewTab(effectiveV2Image, `${doc.title} - ${v2.fileName || 'Strata Survey'}`)}
-                              className="p-1.5 bg-[#1E293B] hover:bg-[#38BDF8] hover:text-[#0F172A] rounded-lg text-[#38BDF8] cursor-pointer transition-colors flex items-center gap-1 text-[11px] font-bold"
-                              title="Open image in dedicated new tab"
+                              onClick={() => openImageInNewTab(effectiveV2Image, `${doc.title} - ${v2.fileName || 'Photo Inspection'}`)}
+                              className="px-2 py-1 bg-white hover:bg-[#EFF6FF] border border-[#E4E0D6] hover:border-[#BFDBFE] rounded-md text-[#2563EB] cursor-pointer transition-colors flex items-center gap-1 text-[11px] font-bold"
+                              title="Open image full size in dedicated tab"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">New Tab</span>
+                              <span>Full Size</span>
                             </button>
 
                             {/* Reset */}
@@ -1027,7 +1036,7 @@ export const CompareVersionsModal: React.FC = () => {
                                 setImageRotation(0);
                                 setImageFilter('normal');
                               }}
-                              className="p-1.5 bg-[#1E293B] hover:bg-[#334155] rounded-lg text-[#E2E8F0] cursor-pointer transition-colors"
+                              className="p-1.5 bg-white hover:bg-[#F1F5F9] border border-[#E4E0D6] rounded-md text-[#64748B] hover:text-[#141C2B] cursor-pointer transition-colors"
                               title="Reset View"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
@@ -1035,22 +1044,22 @@ export const CompareVersionsModal: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Canvas Display Viewport */}
-                        <div className="p-4 sm:p-6 min-h-[380px] max-h-[540px] overflow-auto flex items-center justify-center bg-[radial-gradient(#1E293B_1px,transparent_1px)] [background-size:16px_16px] relative select-none">
+                        {/* Clean Centered Image Canvas */}
+                        <div className="p-4 sm:p-8 min-h-[400px] max-h-[580px] overflow-auto flex items-center justify-center bg-[#F8FAFC] relative select-none">
                           <div 
                             className="transition-transform duration-200 ease-out flex items-center justify-center max-w-full" 
                             style={{ transform: `scale(${imageZoom}) rotate(${imageRotation}deg)` }}
                           >
                             <img
                               src={effectiveV2Image}
-                              alt={v2.fileName || 'Geological Strata Survey'}
-                              className={`max-h-[460px] max-w-full rounded-lg shadow-2xl border border-white/10 object-contain bg-white ${
+                              alt={v2.fileName || 'Geological Record / Photo'}
+                              className={`max-h-[500px] max-w-full rounded-lg shadow-md border border-[#E2E8F0] object-contain bg-white transition-all ${
                                 imageFilter === 'contrast' 
-                                  ? 'contrast-150 brightness-110 saturate-125' 
+                                  ? 'contrast-150 brightness-105' 
                                   : imageFilter === 'grayscale' 
                                   ? 'grayscale' 
                                   : imageFilter === 'invert' 
-                                  ? 'invert hue-rotate-180' 
+                                  ? 'invert' 
                                   : ''
                               }`}
                             />
@@ -1058,25 +1067,28 @@ export const CompareVersionsModal: React.FC = () => {
 
                           {/* Drag Overlay Hint */}
                           {isDraggingOverV2 && (
-                            <div className="absolute inset-0 bg-[#0B1120]/80 backdrop-blur-xs flex flex-col items-center justify-center text-white space-y-2 pointer-events-none">
-                              <Upload className="w-10 h-10 text-[#38BDF8] animate-bounce" />
-                              <p className="font-bold text-sm">Drop image file to attach to version {v2.versionNumber}.0</p>
+                            <div className="absolute inset-0 bg-[#141C2B]/85 backdrop-blur-xs flex flex-col items-center justify-center text-white space-y-2 pointer-events-none z-20">
+                              <Upload className="w-10 h-10 text-[#FCD34D] animate-bounce" />
+                              <p className="font-bold text-sm">Drop image file here to update version {v2.versionNumber}.0</p>
+                              <p className="text-xs text-[#94A3B8]">Supports JPG, PNG, WEBP, SVG</p>
                             </div>
                           )}
                         </div>
 
-                        {/* Canvas Bottom Status Info */}
-                        <div className="bg-[#0F172A] border-t border-[#1E293B] px-4 py-2 flex items-center justify-between text-[11px] font-mono text-[#64748B]">
-                          <div className="flex items-center gap-3">
-                            <span>Filter: <strong className="text-[#94A3B8] capitalize">{imageFilter}</strong></span>
-                            <span>Zoom: <strong className="text-[#94A3B8]">{Math.round(imageZoom * 100)}%</strong></span>
-                            <span>Rotation: <strong className="text-[#94A3B8]">{imageRotation}°</strong></span>
+                        {/* Clean Status & OCR Toggle Footer */}
+                        <div className="bg-[#FAF8F3] border-t border-[#EFEBE2] px-4 py-2.5 flex items-center justify-between text-xs font-mono text-[#64748B]">
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span>File: <strong className="text-[#141C2B]">{v2.fileName || 'Document Photo'}</strong></span>
+                            <span>Zoom: <strong className="text-[#141C2B]">{Math.round(imageZoom * 100)}%</strong></span>
+                            {imageRotation > 0 && <span>Rotation: <strong className="text-[#141C2B]">{imageRotation}°</strong></span>}
+                            {imageFilter !== 'normal' && <span>Filter: <strong className="text-[#141C2B] capitalize">{imageFilter}</strong></span>}
                           </div>
                           <button
                             onClick={() => setShowImageOcr(!showImageOcr)}
-                            className="text-[#38BDF8] hover:underline cursor-pointer font-bold"
+                            className="text-[#2563EB] hover:underline cursor-pointer font-bold flex items-center gap-1"
                           >
-                            {showImageOcr ? 'Hide OCR Details' : 'Show Extracted OCR Details'}
+                            <Sparkles className="w-3.5 h-3.5 text-[#C8892E]" />
+                            <span>{showImageOcr ? 'Hide Extracted OCR' : 'Show Extracted OCR Text'}</span>
                           </button>
                         </div>
                       </div>
@@ -1087,14 +1099,14 @@ export const CompareVersionsModal: React.FC = () => {
                           <div className="flex items-center justify-between border-b border-[#EFEBE2] pb-2">
                             <h4 className="font-serif font-bold text-sm text-[#141C2B] flex items-center gap-2">
                               <Sparkles className="w-4 h-4 text-[#C8892E]" />
-                              <span>Extracted Image OCR Data &amp; Optical Catalog</span>
+                              <span>Extracted Text &amp; Optical Catalog</span>
                             </h4>
-                            <span className="text-xs font-mono font-bold text-[#16A34A] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0]">
-                              OCR Precision: {v2.ocrConfidence || 99.4}%
+                            <span className="text-xs font-mono font-bold text-[#16A34A] bg-[#F0FDF4] px-2.5 py-0.5 rounded border border-[#BBF7D0]">
+                              OCR Confidence: {v2.ocrConfidence || 99.4}%
                             </span>
                           </div>
-                          <p className="font-sans text-xs sm:text-sm leading-relaxed text-[#334155] whitespace-pre-wrap bg-white p-4 rounded-lg border border-[#E4E0D6] font-mono">
-                            {v2.extractedText || 'Visual capture registered into MineMind AI source vector catalog.'}
+                          <p className="text-xs sm:text-sm leading-relaxed text-[#334155] whitespace-pre-wrap bg-white p-4 rounded-lg border border-[#E4E0D6] font-mono">
+                            {v2.extractedText || 'Image registered into MineMind AI vector catalog.'}
                           </p>
                         </div>
                       )}
@@ -1351,117 +1363,117 @@ export const CompareVersionsModal: React.FC = () => {
                   {visualDiffMode === 'split' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Left: Baseline / Benchmark Reference */}
-                      <div className="bg-[#0B1120] border border-[#1E293B] rounded-xl overflow-hidden shadow-inner flex flex-col">
-                        <div className="bg-[#0F172A] border-b border-[#1E293B] px-3.5 py-2.5 flex items-center justify-between text-xs font-mono">
-                          <span className="text-[#94A3B8] font-bold">
+                      <div className="bg-white border border-[#E4E0D6] rounded-xl overflow-hidden shadow-xs flex flex-col">
+                        <div className="bg-[#FAF8F3] border-b border-[#EFEBE2] px-3.5 py-2.5 flex items-center justify-between text-xs font-mono">
+                          <span className="text-[#64748B] font-bold">
                             {isInitialSubmission ? 'APPROVED BENCHMARK REFERENCE' : `BASELINE VERSION ${v1.versionNumber}.0`}
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => openImageInNewTab(effectiveV1Image, `${benchmarkDoc ? benchmarkDoc.title : doc.title} - Baseline Reference`)}
-                              className="px-2 py-0.5 bg-[#1E293B] hover:bg-[#38BDF8] hover:text-[#0F172A] text-[#38BDF8] rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                              className="px-2 py-0.5 bg-white hover:bg-[#EFF6FF] border border-[#E4E0D6] text-[#2563EB] rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
                               title="Open Baseline image in new tab"
                             >
                               <ExternalLink className="w-2.5 h-2.5" />
-                              <span>Tab</span>
+                              <span>Full Size</span>
                             </button>
                             <button
                               onClick={() => handleReadClipboard('v1')}
-                              className="px-2 py-0.5 bg-[#1E293B] hover:bg-[#334155] text-[#38BDF8] rounded text-[10px] font-bold cursor-pointer"
+                              className="px-2 py-0.5 bg-white hover:bg-[#FAF8F3] border border-[#E4E0D6] text-[#141C2B] rounded text-[10px] font-medium cursor-pointer"
                               title="Paste image into Reference v1"
                             >
-                              📋 Paste
+                              Paste v1
                             </button>
                             <button
                               onClick={() => fileInputV1Ref.current?.click()}
-                              className="px-2 py-0.5 bg-[#1E293B] hover:bg-[#334155] text-[#E2E8F0] rounded text-[10px] cursor-pointer"
+                              className="px-2 py-0.5 bg-white hover:bg-[#FAF8F3] border border-[#E4E0D6] text-[#141C2B] rounded text-[10px] font-medium cursor-pointer"
                               title="Upload reference file"
                             >
-                              📁 Upload
+                              Upload
                             </button>
                           </div>
                         </div>
 
                         <div 
                           onClick={() => openImageInNewTab(effectiveV1Image, `${benchmarkDoc ? benchmarkDoc.title : doc.title} - Baseline Reference`)}
-                          className="p-4 min-h-[260px] max-h-[360px] overflow-auto flex items-center justify-center bg-[radial-gradient(#1E293B_1px,transparent_1px)] [background-size:16px_16px] cursor-zoom-in group relative"
-                          title="Click to expand / inspect in new tab"
+                          className="p-4 min-h-[260px] max-h-[360px] overflow-auto flex items-center justify-center bg-[#F8FAFC] cursor-zoom-in group relative"
+                          title="Click to inspect in high-resolution tab"
                         >
                           <img
                             src={effectiveV1Image}
                             alt="Baseline Reference Strata"
-                            className="max-h-[300px] max-w-full rounded shadow-md border border-white/10 object-contain bg-white group-hover:opacity-90 transition-opacity"
+                            className="max-h-[300px] max-w-full rounded-md shadow-xs border border-[#E2E8F0] object-contain bg-white group-hover:scale-[1.01] transition-transform"
                           />
-                          <div className="absolute bottom-2 right-2 bg-[#0F172A]/80 text-[#38BDF8] text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-none">
+                          <div className="absolute bottom-2 right-2 bg-white/90 border border-[#E4E0D6] text-[#2563EB] text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-none">
                             <ExternalLink className="w-3 h-3" />
                             <span>Inspect</span>
                           </div>
                         </div>
 
-                        <div className="bg-[#0F172A] border-t border-[#1E293B] px-3.5 py-2 text-[11px] font-mono text-[#94A3B8] flex items-center justify-between">
+                        <div className="bg-[#FAF8F3] border-t border-[#EFEBE2] px-3.5 py-2 text-[11px] font-mono text-[#64748B] flex items-center justify-between">
                           <span>{benchmarkDoc ? benchmarkDoc.title : doc.title}</span>
-                          <span className="text-[#10B981] font-bold">● Approved Standard</span>
+                          <span className="text-[#16A34A] font-bold">● Approved Standard</span>
                         </div>
                       </div>
 
                       {/* Right: Proposed Submission */}
-                      <div className="bg-[#0B1120] border-2 border-[#C8892E] rounded-xl overflow-hidden shadow-inner flex flex-col">
-                        <div className="bg-[#0F172A] border-b border-[#1E293B] px-3.5 py-2.5 flex items-center justify-between text-xs font-mono">
+                      <div className="bg-white border-2 border-[#C8892E] rounded-xl overflow-hidden shadow-xs flex flex-col">
+                        <div className="bg-[#FAF8F3] border-b border-[#EFEBE2] px-3.5 py-2.5 flex items-center justify-between text-xs font-mono">
                           <span className="text-[#C8892E] font-bold">
                             {isInitialSubmission ? 'PROPOSED SUBMISSION (v1.0)' : `PROPOSED REVISION (v${v2.versionNumber}.0)`}
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => openImageInNewTab(effectiveV2Image, `${doc.title} - ${v2.fileName || 'Proposed Submission'}`)}
-                              className="px-2 py-0.5 bg-[#1E293B] hover:bg-[#C8892E] hover:text-[#141C2B] text-[#C8892E] rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                              className="px-2 py-0.5 bg-[#C8892E] hover:bg-[#A97223] text-[#141C2B] rounded text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
                               title="Open Proposed image in new tab"
                             >
                               <ExternalLink className="w-2.5 h-2.5" />
-                              <span>Tab</span>
+                              <span>Full Size</span>
                             </button>
                             <button
                               onClick={() => handleReadClipboard('v2')}
-                              className="px-2 py-0.5 bg-[#C8892E] hover:bg-[#A97223] text-[#141C2B] rounded text-[10px] font-bold cursor-pointer"
+                              className="px-2 py-0.5 bg-[#141C2B] hover:bg-[#1E293B] text-white rounded text-[10px] font-bold cursor-pointer"
                               title="Paste image into Proposed v2"
                             >
-                              📋 Paste v2 (Ctrl+V)
+                              Paste v2 (Ctrl+V)
                             </button>
                             <button
                               onClick={() => fileInputV2Ref.current?.click()}
-                              className="px-2 py-0.5 bg-[#1E293B] hover:bg-[#334155] text-[#E2E8F0] rounded text-[10px] cursor-pointer"
+                              className="px-2 py-0.5 bg-white hover:bg-[#FAF8F3] border border-[#E4E0D6] text-[#141C2B] rounded text-[10px] font-medium cursor-pointer"
                               title="Upload submission file"
                             >
-                              📁 Upload
+                              Upload
                             </button>
                           </div>
                         </div>
 
                         <div 
                           onClick={() => openImageInNewTab(effectiveV2Image, `${doc.title} - ${v2.fileName || 'Proposed Submission'}`)}
-                          className="p-4 min-h-[260px] max-h-[360px] overflow-auto flex items-center justify-center bg-[radial-gradient(#1E293B_1px,transparent_1px)] [background-size:16px_16px] cursor-zoom-in group relative"
-                          title="Click to expand / inspect in new tab"
+                          className="p-4 min-h-[260px] max-h-[360px] overflow-auto flex items-center justify-center bg-[#F8FAFC] cursor-zoom-in group relative"
+                          title="Click to inspect in high-resolution tab"
                         >
                           <img
                             src={effectiveV2Image}
                             alt="Proposed Strata Capture"
-                            className="max-h-[300px] max-w-full rounded shadow-md border border-white/10 object-contain bg-white group-hover:opacity-90 transition-opacity"
+                            className="max-h-[300px] max-w-full rounded-md shadow-xs border border-[#E2E8F0] object-contain bg-white group-hover:scale-[1.01] transition-transform"
                           />
-                          <div className="absolute bottom-2 right-2 bg-[#0F172A]/80 text-[#C8892E] text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-none">
+                          <div className="absolute bottom-2 right-2 bg-white/90 border border-[#E4E0D6] text-[#C8892E] text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-none">
                             <ExternalLink className="w-3 h-3" />
                             <span>Inspect</span>
                           </div>
                         </div>
 
-                        <div className="bg-[#0F172A] border-t border-[#1E293B] px-3.5 py-2 text-[11px] font-mono text-[#94A3B8] flex items-center justify-between">
+                        <div className="bg-[#FAF8F3] border-t border-[#EFEBE2] px-3.5 py-2 text-[11px] font-mono text-[#64748B] flex items-center justify-between">
                           <span>{v2.fileName || 'Submitted Visual Survey'}</span>
-                          <span className="text-[#F59E0B] font-bold">● {v2.approvalStatus.toUpperCase()}</span>
+                          <span className="text-[#D97706] font-bold">● {v2.approvalStatus.toUpperCase()}</span>
                         </div>
                       </div>
                     </div>
                   ) : visualDiffMode === 'wipe' ? (
                     /* Wipe Curtain Overlay */
-                    <div className="bg-[#0B1120] border border-[#1E293B] rounded-xl overflow-hidden shadow-2xl relative min-h-[420px] flex items-center justify-center">
-                      <div className="relative w-full max-w-2xl h-[380px] overflow-hidden rounded-lg bg-white select-none">
+                    <div className="bg-[#F8FAFC] border border-[#E4E0D6] rounded-xl overflow-hidden shadow-xs relative min-h-[420px] flex items-center justify-center p-4">
+                      <div className="relative w-full max-w-2xl h-[380px] overflow-hidden rounded-lg bg-white border border-[#E2E8F0] shadow-sm select-none">
                         {/* Background Base (v1) */}
                         <img
                           src={effectiveV1Image}
@@ -1480,20 +1492,20 @@ export const CompareVersionsModal: React.FC = () => {
                             className="absolute inset-0 w-full h-full object-contain max-w-none"
                             style={{ width: '100%', height: '100%' }}
                           />
-                          <div className="absolute top-2 left-2 bg-[#141C2B]/80 text-[#C8892E] font-mono text-[10px] px-2 py-0.5 rounded font-bold">
+                          <div className="absolute top-2 left-2 bg-[#141C2B]/85 text-[#FCD34D] font-mono text-[10px] px-2 py-0.5 rounded font-bold shadow-xs">
                             Proposed v{v2.versionNumber}.0
                           </div>
                         </div>
 
-                        <div className="absolute top-2 right-2 bg-[#141C2B]/80 text-[#10B981] font-mono text-[10px] px-2 py-0.5 rounded font-bold">
+                        <div className="absolute top-2 right-2 bg-[#141C2B]/85 text-[#10B981] font-mono text-[10px] px-2 py-0.5 rounded font-bold shadow-xs">
                           Baseline Reference
                         </div>
                       </div>
                     </div>
                   ) : (
                     /* Onion Skin Overlay */
-                    <div className="bg-[#0B1120] border border-[#1E293B] rounded-xl overflow-hidden shadow-2xl relative min-h-[420px] flex items-center justify-center">
-                      <div className="relative w-full max-w-2xl h-[380px] rounded-lg bg-white overflow-hidden">
+                    <div className="bg-[#F8FAFC] border border-[#E4E0D6] rounded-xl overflow-hidden shadow-xs relative min-h-[420px] flex items-center justify-center p-4">
+                      <div className="relative w-full max-w-2xl h-[380px] rounded-lg bg-white border border-[#E2E8F0] shadow-sm overflow-hidden">
                         <img
                           src={effectiveV1Image}
                           alt="Baseline"
@@ -1509,37 +1521,80 @@ export const CompareVersionsModal: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Strata Variance & Coordinate Shift Summary */}
-                  <div className="bg-white p-4 rounded-xl border border-[#E4E0D6] space-y-3 font-mono text-xs">
-                    <div className="flex items-center justify-between border-b border-[#EFEBE2] pb-2">
-                      <span className="font-bold text-[#141C2B] flex items-center gap-1.5">
-                        <Database className="w-4 h-4 text-[#C8892E]" />
-                        <span>Visual Strata Variance &amp; Geological Assay Comparison</span>
-                      </span>
-                      <span className="text-[10px] text-[#16A34A] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0] font-bold">
-                        Alignment Confidence: 99.4%
-                      </span>
-                    </div>
+                  {/* Image Content Analysis & Geological Parameter Extraction Summary */}
+                  {(() => {
+                    // Check if this image has geological content vs general workflow/system architecture
+                    const isGeological = (v2.extractedText || '').toLowerCase().includes('strata') || 
+                                         (v2.extractedText || '').toLowerCase().includes('borehole') ||
+                                         (v2.extractedText || '').toLowerCase().includes('seam') ||
+                                         (doc.title || '').toLowerCase().includes('lithological') ||
+                                         (doc.title || '').toLowerCase().includes('geological');
+                    
+                    const isSystemDiagram = (v2.extractedText || '').toLowerCase().includes('workflow') || 
+                                            (v2.extractedText || '').toLowerCase().includes('query') ||
+                                            (v2.fileName || '').toLowerCase().includes('whatsapp') ||
+                                            (v2.extractedText || '').toLowerCase().includes('plantmind');
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-[11px]">
-                      <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
-                        <span className="text-[#64748B] block text-[10px]">Coal Seam-IV Thickness</span>
-                        <span className="font-bold text-[#141C2B]">26.5m (Δ 0.0m)</span>
+                    return (
+                      <div className="bg-white p-4 rounded-xl border border-[#E4E0D6] space-y-3 font-mono text-xs">
+                        <div className="flex items-center justify-between border-b border-[#EFEBE2] pb-2">
+                          <span className="font-bold text-[#141C2B] flex items-center gap-1.5 font-sans">
+                            <Database className="w-4 h-4 text-[#C8892E]" />
+                            <span>{isGeological ? 'Lithological Core Log & Strata Assay Metrics' : 'Image Feature Extraction & Visual Comparison'}</span>
+                          </span>
+                          <span className="text-[10px] text-[#16A34A] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0] font-bold">
+                            OCR &amp; Vector Confidence: {v2.ocrConfidence || 99.4}%
+                          </span>
+                        </div>
+
+                        {/* Analysis Metrics */}
+                        {isGeological ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-[11px]">
+                            <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
+                              <span className="text-[#64748B] block text-[10px]">Coal Seam-IV Thickness</span>
+                              <span className="font-bold text-[#141C2B]">26.5m (Δ 0.0m)</span>
+                            </div>
+                            <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
+                              <span className="text-[#64748B] block text-[10px]">Overburden Depth</span>
+                              <span className="font-bold text-[#141C2B]">54.2m (Δ +1.2m)</span>
+                            </div>
+                            <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
+                              <span className="text-[#64748B] block text-[10px]">Stripping Ratio</span>
+                              <span className="font-bold text-[#141C2B]">2.85 m³/tonne</span>
+                            </div>
+                            <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
+                              <span className="text-[#64748B] block text-[10px]">GPS Grid Alignment</span>
+                              <span className="font-bold text-[#16A34A]">Locked 0.0m Shift</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-[11px]">
+                            <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
+                              <span className="text-[#64748B] block text-[10px]">Detected Document Type</span>
+                              <span className="font-bold text-[#141C2B] truncate block">{isSystemDiagram ? 'Architecture / Workflow' : 'Visual Diagram'}</span>
+                            </div>
+                            <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
+                              <span className="text-[#64748B] block text-[10px]">Visual Resolution</span>
+                              <span className="font-bold text-[#141C2B]">High-Res Vector / Raster</span>
+                            </div>
+                            <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
+                              <span className="text-[#64748B] block text-[10px]">Domain Categorization</span>
+                              <span className="font-bold text-[#D97706]">{isSystemDiagram ? 'Technical Architecture' : 'Survey Record'}</span>
+                            </div>
+                            <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
+                              <span className="text-[#64748B] block text-[10px]">Optical Quality</span>
+                              <span className="font-bold text-[#16A34A]">Clear &amp; Readable</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* How the analysis works explanation */}
+                        <div className="p-2.5 bg-[#F8FAFC] rounded border border-[#E2E8F0] text-[11px] text-[#475569] font-sans leading-relaxed">
+                          <strong className="text-[#141C2B] font-semibold">How MineMind analyzes uploaded images:</strong> The OCR and computer vision engine extracts diagram text, labels, and visual coordinates from your uploaded image, indexing it into the subsidiary vector catalog so other engineers can discover and compare it across Coal India repositories.
+                        </div>
                       </div>
-                      <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
-                        <span className="text-[#64748B] block text-[10px]">Overburden Depth</span>
-                        <span className="font-bold text-[#141C2B]">54.2m (Δ +1.2m)</span>
-                      </div>
-                      <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
-                        <span className="text-[#64748B] block text-[10px]">Stripping Ratio</span>
-                        <span className="font-bold text-[#141C2B]">2.85 m³/tonne</span>
-                      </div>
-                      <div className="p-2.5 bg-[#FAF8F3] rounded border border-[#E4E0D6]">
-                        <span className="text-[#64748B] block text-[10px]">GPS Grid Alignment</span>
-                        <span className="font-bold text-[#16A34A]">Locked 0.0m Shift</span>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 /* 2. TEXTUAL / STATUTORY SIDE-BY-SIDE DIFF CARDS */

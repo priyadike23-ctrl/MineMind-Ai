@@ -2,104 +2,113 @@
 // This guarantees 100% reliable image loading in all browsers, iframes, and new tabs without SVG encoding or CSP issues.
 
 export const getGeologicalStrataPngBase64 = (title: string, subsidiary: string, docCode: string): string => {
-  // Generate a standalone, pristine SVG and base64 encode it safely via btoa
-  const safeTitle = (title || 'Geological Borehole Strata Survey').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 48);
+  const safeTitle = (title || 'Geological Strata Survey Record').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 50);
   const safeSub = (subsidiary || 'CMPDI HQ').replace(/&/g, '&amp;');
   const safeCode = (docCode || 'GEO-REC-832').replace(/&/g, '&amp;');
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" width="1000" height="620">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" style="background:#FFFFFF;">
     <defs>
-      <pattern id="sandstone" width="20" height="20" patternUnits="userSpaceOnUse">
-        <rect width="20" height="20" fill="#EAD9B8"/>
-        <circle cx="4" cy="4" r="1.5" fill="#C4A470"/>
-        <circle cx="14" cy="8" r="1.5" fill="#C4A470"/>
-        <circle cx="8" cy="16" r="1.5" fill="#C4A470"/>
-        <circle cx="18" cy="16" r="1.5" fill="#C4A470"/>
-      </pattern>
-      <pattern id="shale" width="30" height="12" patternUnits="userSpaceOnUse">
-        <rect width="30" height="12" fill="#CBD5E1"/>
-        <line x1="0" y1="6" x2="14" y2="6" stroke="#64748B" stroke-width="1.2"/>
-        <line x1="16" y1="11" x2="28" y2="11" stroke="#64748B" stroke-width="1.2"/>
-      </pattern>
-      <pattern id="coal" width="16" height="16" patternUnits="userSpaceOnUse">
-        <rect width="16" height="16" fill="#18181B"/>
-        <path d="M0 8 L8 0 M8 16 L16 8" stroke="#3F3F46" stroke-width="1.5"/>
-      </pattern>
-      <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#0F172A"/>
-        <stop offset="100%" stop-color="#1E293B"/>
+      <linearGradient id="headerBg" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#141C2B" />
+        <stop offset="100%" stop-color="#1E293B" />
       </linearGradient>
+      <pattern id="sandstonePattern" width="20" height="20" patternUnits="userSpaceOnUse">
+        <rect width="20" height="20" fill="#FEF3C7"/>
+        <circle cx="5" cy="5" r="1.5" fill="#D97706" opacity="0.4"/>
+        <circle cx="15" cy="12" r="1.5" fill="#D97706" opacity="0.4"/>
+        <circle cx="9" cy="16" r="1.5" fill="#D97706" opacity="0.4"/>
+      </pattern>
+      <pattern id="shalePattern" width="24" height="12" patternUnits="userSpaceOnUse">
+        <rect width="24" height="12" fill="#E2E8F0"/>
+        <line x1="0" y1="6" x2="10" y2="6" stroke="#94A3B8" stroke-width="1.5"/>
+        <line x1="12" y1="11" x2="22" y2="11" stroke="#94A3B8" stroke-width="1.5"/>
+      </pattern>
+      <pattern id="coalPattern" width="16" height="16" patternUnits="userSpaceOnUse">
+        <rect width="16" height="16" fill="#18181B"/>
+        <line x1="0" y1="8" x2="8" y2="0" stroke="#3F3F46" stroke-width="1.5"/>
+        <line x1="8" y1="16" x2="16" y2="8" stroke="#3F3F46" stroke-width="1.5"/>
+      </pattern>
     </defs>
 
-    <!-- Canvas Background -->
-    <rect width="1000" height="620" fill="#F8FAFC"/>
+    <!-- Outer Document Border -->
+    <rect x="10" y="10" width="980" height="620" rx="8" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2"/>
+
+    <!-- Document Header -->
+    <rect x="10" y="10" width="980" height="70" rx="8" fill="url(#headerBg)"/>
+    <text x="35" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#38BDF8" letter-spacing="1">CENTRAL MINE PLANNING &amp; DESIGN INSTITUTE (CMPDI) · GEOLOGICAL CORE LOG</text>
+    <text x="35" y="62" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">${safeTitle}</text>
     
-    <!-- Title Bar -->
-    <rect width="1000" height="60" fill="url(#headerGrad)"/>
-    <text x="24" y="26" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, monospace" font-size="12" font-weight="bold" fill="#38BDF8">CENTRAL MINE PLANNING &amp; DESIGN INSTITUTE (CMPDI) · GEOLOGICAL CORE LOG</text>
-    <text x="24" y="48" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-size="15" font-weight="bold" fill="#FFFFFF">${safeTitle}</text>
-    <text x="976" y="38" text-anchor="end" font-family="monospace" font-size="12" font-weight="bold" fill="#FCD34D">${safeSub} · ${safeCode}</text>
+    <rect x="800" y="24" width="165" height="40" rx="6" fill="#0F172A" stroke="#334155"/>
+    <text x="882" y="42" text-anchor="middle" font-family="monospace" font-size="11" font-weight="700" fill="#FCD34D">${safeSub}</text>
+    <text x="882" y="56" text-anchor="middle" font-family="monospace" font-size="10" fill="#94A3B8">${safeCode}</text>
 
-    <!-- Geological Cross-Section Chart Area -->
-    <g transform="translate(65, 75)">
-      <!-- Outer Border & Background -->
-      <rect x="0" y="0" width="870" height="445" fill="#FFFFFF" stroke="#94A3B8" stroke-width="2"/>
+    <!-- Main Geological Column Diagram -->
+    <g transform="translate(60, 95)">
+      <!-- Depth Axis Background -->
+      <rect x="0" y="0" width="60" height="450" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+      
+      <!-- Depth Labels -->
+      <text x="30" y="20" font-family="monospace" font-size="10" font-weight="700" fill="#64748B" text-anchor="middle">0m</text>
+      <text x="30" y="80" font-family="monospace" font-size="10" font-weight="700" fill="#64748B" text-anchor="middle">20m</text>
+      <text x="30" y="180" font-family="monospace" font-size="10" font-weight="700" fill="#64748B" text-anchor="middle">55m</text>
+      <text x="30" y="235" font-family="monospace" font-size="10" font-weight="700" fill="#64748B" text-anchor="middle">70m</text>
+      <text x="30" y="325" font-family="monospace" font-size="10" font-weight="700" fill="#64748B" text-anchor="middle">95m</text>
+      <text x="30" y="375" font-family="monospace" font-size="10" font-weight="700" fill="#64748B" text-anchor="middle">110m</text>
+      <text x="30" y="440" font-family="monospace" font-size="10" font-weight="700" fill="#64748B" text-anchor="middle">130m</text>
 
-      <!-- Strata Layer 1: Topsoil / Weathered Alluvium (0 - 18.5m) -->
-      <rect x="65" y="0" width="750" height="55" fill="#D97706" fill-opacity="0.75"/>
-      <text x="75" y="32" font-family="sans-serif" font-size="12" font-weight="bold" fill="#78350F">● Topsoil &amp; Weathered Alluvium Layer (0.0m - 18.5m)</text>
+      <!-- Strata Cross-Section -->
+      <g transform="translate(60, 0)">
+        <!-- Layer 1: Topsoil -->
+        <rect x="0" y="0" width="810" height="55" fill="#D97706" fill-opacity="0.85" stroke="#B45309"/>
+        <text x="20" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Layer 1: Topsoil &amp; Weathered Alluvium (0.0m - 18.5m)</text>
+        <text x="790" y="32" text-anchor="end" font-family="monospace" font-size="11" font-weight="600" fill="#FEF3C7">Thickness: 18.5m</text>
 
-      <!-- Strata Layer 2: Medium-Grained Sandstone Overburden (18.5 - 54.2m) -->
-      <rect x="65" y="55" width="750" height="115" fill="url(#sandstone)"/>
-      <text x="75" y="115" font-family="sans-serif" font-size="12" font-weight="bold" fill="#5C4217">● Overburden Sandstone Member (18.5m - 54.2m) [Compressive Strength: 42 MPa]</text>
+        <!-- Layer 2: Sandstone Overburden -->
+        <rect x="0" y="55" width="810" height="115" fill="url(#sandstonePattern)" stroke="#D97706"/>
+        <text x="20" y="115" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#78350F">Layer 2: Overburden Sandstone Member (18.5m - 54.2m) · Compressive: 42 MPa</text>
+        <text x="790" y="115" text-anchor="end" font-family="monospace" font-size="11" font-weight="600" fill="#92400E">Thickness: 35.7m</text>
 
-      <!-- Strata Layer 3: Carbonaceous Roof Shale (54.2 - 68.0m) -->
-      <rect x="65" y="170" width="750" height="45" fill="url(#shale)"/>
-      <text x="75" y="198" font-family="sans-serif" font-size="11" font-weight="bold" fill="#1E293B">● Carbonaceous Roof Shale (54.2m - 68.0m)</text>
+        <!-- Layer 3: Roof Shale -->
+        <rect x="0" y="170" width="810" height="45" fill="url(#shalePattern)" stroke="#64748B"/>
+        <text x="20" y="198" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#1E293B">Layer 3: Carbonaceous Roof Shale (54.2m - 68.0m)</text>
+        <text x="790" y="198" text-anchor="end" font-family="monospace" font-size="11" font-weight="600" fill="#475569">Thickness: 13.8m</text>
 
-      <!-- Strata Layer 4: PRIME SEAM-IV COAL (68.0 - 94.5m) -->
-      <rect x="65" y="215" width="750" height="90" fill="url(#coal)"/>
-      <text x="75" y="262" font-family="sans-serif" font-size="13" font-weight="bold" fill="#38BDF8">★ SEAM-IV MAIN COAL HORIZON (68.0m - 94.5m) · THICKNESS: 26.5m · GCV: 5400 kcal/kg</text>
+        <!-- Layer 4: PRIME COAL SEAM-IV -->
+        <rect x="0" y="215" width="810" height="90" fill="url(#coalPattern)" stroke="#000000"/>
+        <rect x="10" y="225" width="790" height="70" rx="4" fill="#000000" fill-opacity="0.8"/>
+        <text x="25" y="255" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="800" fill="#38BDF8">★ SEAM-IV MAIN COAL HORIZON (68.0m - 94.5m)</text>
+        <text x="25" y="278" font-family="monospace" font-size="12" font-weight="600" fill="#FCD34D">THICKNESS: 26.5m  |  GROSS CALORIFIC VALUE (GCV): 5,400 kcal/kg  |  GRADE: G-7</text>
+        <text x="785" y="265" text-anchor="end" font-family="monospace" font-size="12" font-weight="700" fill="#34D399">PRIME TARGET</text>
 
-      <!-- Strata Layer 5: Interburden Siltstone (94.5 - 110.0m) -->
-      <rect x="65" y="305" width="750" height="50" fill="url(#sandstone)" fill-opacity="0.85"/>
-      <text x="75" y="335" font-family="sans-serif" font-size="11" font-weight="bold" fill="#5C4217">● Interburden Sandstone / Siltstone (94.5m - 110.0m)</text>
+        <!-- Layer 5: Siltstone Interburden -->
+        <rect x="0" y="305" width="810" height="50" fill="url(#sandstonePattern)" stroke="#D97706"/>
+        <text x="20" y="335" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#78350F">Layer 5: Interburden Sandstone &amp; Siltstone (94.5m - 110.0m)</text>
+        <text x="790" y="335" text-anchor="end" font-family="monospace" font-size="11" font-weight="600" fill="#92400E">Thickness: 15.5m</text>
 
-      <!-- Strata Layer 6: SEAM-V LOWER COAL (110.0 - 128.5m) -->
-      <rect x="65" y="355" width="750" height="90" fill="url(#coal)"/>
-      <text x="75" y="405" font-family="sans-serif" font-size="12" font-weight="bold" fill="#FDE047">★ SEAM-V LOWER COAL SEAM (110.0m - 128.5m) · THICKNESS: 18.5m</text>
+        <!-- Layer 6: LOWER COAL SEAM-V -->
+        <rect x="0" y="355" width="810" height="95" fill="url(#coalPattern)" stroke="#000000"/>
+        <rect x="10" y="365" width="790" height="75" rx="4" fill="#000000" fill-opacity="0.8"/>
+        <text x="25" y="398" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="800" fill="#FCD34D">★ SEAM-V LOWER COAL HORIZON (110.0m - 128.5m)</text>
+        <text x="25" y="420" font-family="monospace" font-size="12" font-weight="600" fill="#E2E8F0">THICKNESS: 18.5m  |  GCV: 4,950 kcal/kg  |  RECOVERY RATE: 98.4%</text>
 
-      <!-- Borehole Drill Path Lines -->
-      <line x1="240" y1="0" x2="240" y2="445" stroke="#DC2626" stroke-width="2.5" stroke-dasharray="6,4"/>
-      <circle cx="240" cy="0" r="5" fill="#DC2626"/>
-      <rect x="248" y="8" width="170" height="20" fill="#FEF2F2" rx="4" stroke="#FECACA"/>
-      <text x="254" y="22" font-family="monospace" font-size="10" font-weight="bold" fill="#DC2626">BH-01 (Recovery: 96.4%)</text>
+        <!-- Drill Borehole Paths -->
+        <line x1="220" y1="0" x2="220" y2="450" stroke="#DC2626" stroke-width="2.5" stroke-dasharray="6,4"/>
+        <rect x="230" y="8" width="160" height="24" rx="4" fill="#FFFFFF" stroke="#DC2626" stroke-width="1.5"/>
+        <text x="310" y="24" text-anchor="middle" font-family="monospace" font-size="10" font-weight="800" fill="#DC2626">BH-01 (Core: 98.2%)</text>
 
-      <line x1="590" y1="0" x2="590" y2="445" stroke="#2563EB" stroke-width="2.5" stroke-dasharray="6,4"/>
-      <circle cx="590" cy="0" r="5" fill="#2563EB"/>
-      <rect x="598" y="8" width="165" height="20" fill="#EFF6FF" rx="4" stroke="#BFDBFE"/>
-      <text x="604" y="22" font-family="monospace" font-size="10" font-weight="bold" fill="#2563EB">BH-02 (Exploratory Core)</text>
-
-      <!-- Depth Axis Marks -->
-      <g font-family="monospace" font-size="10" font-weight="bold" fill="#64748B" text-anchor="end">
-        <text x="52" y="12">0m</text>
-        <text x="52" y="65">20m</text>
-        <text x="52" y="180">55m</text>
-        <text x="52" y="235">70m</text>
-        <text x="52" y="320">95m</text>
-        <text x="52" y="370">110m</text>
-        <text x="52" y="440">130m</text>
+        <line x1="560" y1="0" x2="560" y2="450" stroke="#2563EB" stroke-width="2.5" stroke-dasharray="6,4"/>
+        <rect x="570" y="8" width="170" height="24" rx="4" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.5"/>
+        <text x="655" y="24" text-anchor="middle" font-family="monospace" font-size="10" font-weight="800" fill="#2563EB">BH-02 (Exploratory)</text>
       </g>
     </g>
 
     <!-- Footer Bar -->
-    <rect y="535" width="1000" height="85" fill="#0F172A"/>
-    <g transform="translate(24, 560)" font-family="monospace" font-size="11" fill="#E2E8F0">
-      <text x="0" y="0">Mine Grid Coordinates: 23°47'28"N, 86°25'42"E · Surface Datum: +248m MSL</text>
-      <text x="0" y="20" fill="#94A3B8">Surveyed by: Directorate of Exploration &amp; Core Logging · MineMind AI Ingestion Engine</text>
-      <text x="560" y="0" fill="#38BDF8">Stripping Ratio (OB:Coal) = 2.85 m³/tonne</text>
-      <text x="560" y="20" fill="#10B981">● High-Resolution Verified Lithological Record</text>
-    </g>
+    <rect x="10" y="560" width="980" height="70" rx="8" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="35" y="590" font-family="monospace" font-size="11" font-weight="700" fill="#1E293B">Mine Grid Coordinates: 23°47'28"N, 86°25'42"E · Surface Datum: +248m MSL</text>
+    <text x="35" y="612" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" fill="#64748B">Exploration Directorate · Verified Lithological Core Survey Record · MineMind AI Verified</text>
+    
+    <text x="965" y="590" text-anchor="end" font-family="monospace" font-size="12" font-weight="700" fill="#0284C7">Stripping Ratio (OB:Coal): 2.85 m³/tonne</text>
+    <text x="965" y="612" text-anchor="end" font-family="monospace" font-size="11" font-weight="700" fill="#16A34A">● OCR &amp; Vector Pipeline Validated (99.4%)</text>
   </svg>`;
 
   try {
