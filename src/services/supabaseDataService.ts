@@ -1,4 +1,4 @@
-import { getSupabase } from '../supabaseClient';
+import { getSupabase, isSupabaseConfigured } from '../supabaseClient';
 import { 
   Document, 
   DocumentVersion, 
@@ -7,7 +7,12 @@ import {
   User, 
   Subsidiary,
   DocumentType,
-  ApprovalStatus
+  ApprovalStatus,
+  ApprovalPriority,
+  UserAccessRequest,
+  ReportRecord,
+  TopicInsight,
+  QueryRecord
 } from '../types';
 
 export interface SupabaseProfile {
@@ -19,6 +24,7 @@ export interface SupabaseProfile {
   subsidiary: Subsidiary;
   department: string;
   designation: string;
+  status?: string;
 }
 
 export const STORAGE_BUCKET = 'app-files';
@@ -161,7 +167,7 @@ export async function fetchUserProfile(userId: string, email?: string): Promise<
           department: data.department || 'Central Directorate',
           designation: data.designation || (data.role === 'admin' ? 'Chief Mining Engineer' : 'Mining Technical Officer'),
           employeeId: data.employee_id || `EMP-${data.id.substring(0, 5).toUpperCase()}`,
-          status: 'approved',
+          status: (data.status as any) || 'approved',
         };
       }
     }
@@ -176,18 +182,6 @@ export async function fetchUserProfile(userId: string, email?: string): Promise<
         .maybeSingle();
 
       if (emailData && !emailError) {
-        // If the profile exists under this email, link the OAuth userId to it
-        if (userId && emailData.id !== userId) {
-          try {
-            await supabase
-              .from('profiles')
-              .update({ id: userId, updated_at: new Date().toISOString() })
-              .eq('email', cleanEmail);
-          } catch {
-            // Non-blocking if primary key constraint exists
-          }
-        }
-
         return {
           id: userId || emailData.id,
           name: emailData.name || cleanEmail.split('@')[0],
@@ -197,7 +191,7 @@ export async function fetchUserProfile(userId: string, email?: string): Promise<
           department: emailData.department || 'Central Directorate',
           designation: emailData.designation || (emailData.role === 'admin' ? 'Chief Mining Engineer' : 'Mining Technical Officer'),
           employeeId: emailData.employee_id || `EMP-${(userId || emailData.id).substring(0, 5).toUpperCase()}`,
-          status: 'approved',
+          status: (emailData.status as any) || 'approved',
         };
       }
     }
@@ -226,6 +220,7 @@ export async function syncUserProfile(user: User): Promise<boolean> {
         subsidiary: user.subsidiary,
         department: user.department,
         designation: user.designation,
+        status: user.status || 'approved',
         updated_at: new Date().toISOString(),
       });
 
@@ -241,11 +236,17 @@ export async function syncUserProfile(user: User): Promise<boolean> {
 }
 
 // Helper to produce valid UUIDs for primary keys
-function generateDbId(): string {
+export function generateDbId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
   return `rec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+// Check if string is standard UUID format
+function isUuid(str?: string): boolean {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
 }
 
 // Fetch all documents with their nested versions
@@ -297,7 +298,7 @@ export async function fetchAllDocuments(): Promise<Document[] | null> {
         keyMetrics: row.key_metrics || [],
         ocrConfidence: Number(row.ocr_confidence) || 98.0,
         approvalStatus: (row.approval_status as ApprovalStatus) || 'approved',
-        approvalPriority: row.approval_priority || 'normal',
+        approvalPriority: (row.approval_priority as ApprovalPriority) || 'normal',
         aiRiskReason: row.ai_risk_reason,
         approvedBy: row.reviewed_by_name ? {
           id: row.reviewed_by_id || 'usr_admin',
@@ -315,7 +316,6 @@ export async function fetchAllDocuments(): Promise<Document[] | null> {
     const parsedDocs: Document[] = docsData.map((row: any) => {
       let docVersions = versionsByDocId.get(row.id) || [];
       if (docVersions.length === 0) {
-        // Create baseline initial version if table had no child rows
         docVersions = [{
           id: `ver_${row.id}_v1`,
           documentId: row.id,
@@ -437,10 +437,242 @@ export async function fetchAuditLogsFromSupabase(): Promise<AuditLogEntry[] | nu
   }
 }
 
-// Check if string is standard UUID format
-function isUuid(str?: string): boolean {
-  if (!str) return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+// Fetch User Access Requests
+export async function fetchUserAccessRequests(): Promise<UserAccessRequest[] | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('user_access_requests')
+      .select('*')
+      .order('requested_at', { ascending: false });
+
+    if (error || !data) {
+      console.warn('[Supabase] fetchUserAccessRequests warning:', error?.message);
+      return null;
+    }
+
+    return data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      employeeId: row.employee_id,
+      email: row.email,
+      subsidiary: row.subsidiary as Subsidiary,
+      department: row.department,
+      designation: row.designation,
+      role: row.role as 'admin' | 'employee',
+      status: row.status,
+      requestedAt: row.requested_at,
+      approvedAt: row.approved_at,
+      approvedBy: row.approved_by,
+      rejectedReason: row.rejected_reason,
+    }));
+  } catch (err) {
+    console.error('[Supabase] Error in fetchUserAccessRequests:', err);
+    return null;
+  }
+}
+
+// Persist User Access Request
+export async function persistUserAccessRequest(req: UserAccessRequest): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const { error } = await supabase
+      .from('user_access_requests')
+      .insert({
+        id: req.id,
+        name: req.name,
+        employee_id: req.employeeId,
+        email: req.email,
+        subsidiary: req.subsidiary,
+        department: req.department,
+        designation: req.designation,
+        role: req.role,
+        status: req.status,
+        requested_at: req.requestedAt,
+        approved_at: req.approvedAt || null,
+        approved_by: req.approvedBy || null,
+        rejected_reason: req.rejectedReason || null,
+      });
+
+    if (error) {
+      console.warn('[Supabase] persistUserAccessRequest error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error persisting access request:', err);
+    return false;
+  }
+}
+
+// Update Access Request Status
+export async function updateUserAccessRequestStatus(
+  requestId: string,
+  status: 'approved' | 'rejected',
+  adminName: string,
+  rejectedReason?: string
+): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('user_access_requests')
+      .update({
+        status,
+        approved_at: status === 'approved' ? now : null,
+        approved_by: status === 'approved' ? adminName : null,
+        rejected_reason: rejectedReason || null,
+      })
+      .eq('id', requestId);
+
+    if (error) {
+      console.warn('[Supabase] updateUserAccessRequestStatus error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error updating access request status:', err);
+    return false;
+  }
+}
+
+// Fetch Reports
+export async function fetchAllReports(): Promise<ReportRecord[] | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) {
+      console.warn('[Supabase] fetchAllReports warning:', error?.message);
+      return null;
+    }
+
+    return data.map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      reportCode: row.report_code,
+      type: row.type,
+      period: row.period,
+      subsidiary: row.subsidiary,
+      generatedBy: {
+        id: row.generated_by_id || 'usr_sys',
+        name: row.generated_by_name || 'Officer',
+        role: row.generated_by_role || 'employee',
+      },
+      content: row.content,
+      summary: row.summary,
+      summaryExecutive: row.summary_executive,
+      tables: row.tables || [],
+      citations: row.citations || [],
+      sourceDocuments: row.source_documents || [],
+      status: row.status,
+      createdAt: row.created_at,
+    }));
+  } catch (err) {
+    console.error('[Supabase] Error in fetchAllReports:', err);
+    return null;
+  }
+}
+
+// Persist Report Record
+export async function persistReportRecord(report: ReportRecord): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const { error } = await supabase
+      .from('reports')
+      .insert({
+        id: report.id,
+        title: report.title,
+        report_code: report.reportCode,
+        type: report.type,
+        period: report.period,
+        subsidiary: report.subsidiary,
+        generated_by_id: isUuid(report.generatedBy.id) ? report.generatedBy.id : null,
+        generated_by_name: report.generatedBy.name,
+        generated_by_role: report.generatedBy.role,
+        content: report.content,
+        summary: report.summary || null,
+        summary_executive: report.summaryExecutive || null,
+        tables: report.tables || [],
+        citations: report.citations || [],
+        source_documents: report.sourceDocuments || [],
+        status: report.status || 'draft',
+        created_at: report.createdAt,
+      });
+
+    if (error) {
+      console.warn('[Supabase] persistReportRecord error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error persisting report:', err);
+    return false;
+  }
+}
+
+// Delete Report Record
+export async function deleteReportRecord(reportId: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const { error } = await supabase
+      .from('reports')
+      .delete()
+      .eq('id', reportId);
+
+    if (error) {
+      console.warn('[Supabase] deleteReportRecord error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error deleting report:', err);
+    return false;
+  }
+}
+
+// Fetch Topic Insights
+export async function fetchTopicInsights(): Promise<TopicInsight[] | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('ai_insights_topics')
+      .select('*')
+      .order('occurrences', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      return null;
+    }
+
+    return data.map((row: any) => ({
+      topic: row.topic,
+      occurrences: row.occurrences,
+      sentiment: row.sentiment,
+      confidence: Number(row.confidence) || 95.0,
+      subsidiaries: row.subsidiaries || ['CMPDI HQ'],
+      relatedDocsCount: row.related_docs_count || 1,
+    }));
+  } catch (err) {
+    console.error('[Supabase] Error in fetchTopicInsights:', err);
+    return null;
+  }
 }
 
 // Insert Document & Version to Supabase
@@ -459,6 +691,7 @@ export async function persistNewDocument(doc: Document, chunkList: Chunk[]): Pro
       type: doc.type,
       department: doc.department,
       subsidiary: doc.subsidiary,
+      status: doc.status || 'approved',
       created_at: doc.createdAt,
       updated_at: doc.lastUpdated || doc.createdAt,
     });
@@ -481,6 +714,7 @@ export async function persistNewDocument(doc: Document, chunkList: Chunk[]): Pro
         uploaded_by_id: uploaderId,
         uploaded_by_name: v.uploadedBy.name,
         uploaded_by_subsidiary: v.uploadedBy.subsidiary,
+        uploaded_by_employee_id: v.uploadedBy.employeeId,
         uploaded_at: v.uploadedAt,
         reason_for_change: v.reasonForChange,
         extracted_text: v.extractedText,
@@ -559,6 +793,7 @@ export async function persistNewVersion(docId: string, version: DocumentVersion,
       uploaded_by_id: uploaderId,
       uploaded_by_name: version.uploadedBy.name,
       uploaded_by_subsidiary: version.uploadedBy.subsidiary,
+      uploaded_by_employee_id: version.uploadedBy.employeeId,
       uploaded_at: version.uploadedAt,
       reason_for_change: version.reasonForChange,
       extracted_text: version.extractedText,
@@ -654,7 +889,7 @@ export async function persistApprovalReview(
     const now = new Date().toISOString();
     await supabase.from('document_versions').update({
       approval_status: status,
-      reviewed_by_id: reviewer.id,
+      reviewed_by_id: isUuid(reviewer.id) ? reviewer.id : null,
       reviewed_by_name: reviewer.name,
       reviewed_at: now,
       reviewer_note: note || null,
@@ -662,7 +897,7 @@ export async function persistApprovalReview(
 
     await supabase.from('approvals').update({
       status: status,
-      reviewed_by_id: reviewer.id,
+      reviewed_by_id: isUuid(reviewer.id) ? reviewer.id : null,
       reviewed_by_name: reviewer.name,
       reviewed_at: now,
       reviewer_notes: note || null,
@@ -691,19 +926,74 @@ export async function persistAuditLog(entry: AuditLogEntry): Promise<boolean> {
       id: entry.id,
       timestamp: entry.timestamp,
       action: entry.action,
-      actor_id: entry.actorId,
+      actor_id: isUuid(entry.actorId) ? entry.actorId : null,
       actor_name: entry.actorName,
       actor_role: entry.actorRole,
       actor_subsidiary: entry.actorSubsidiary,
-      document_id: entry.documentId,
-      document_title: entry.documentTitle,
-      version_number: entry.versionNumber,
+      document_id: entry.documentId || null,
+      document_title: entry.documentTitle || null,
+      document_code: null,
+      version_number: entry.versionNumber || null,
       details: entry.details,
-      ip_address: entry.ipAddress,
+      ip_address: entry.ipAddress || '10.144.18.24',
     });
     return true;
   } catch (err) {
     console.error('[Supabase] Error inserting audit log:', err);
+    return false;
+  }
+}
+
+/**
+ * Seed initial database records into Supabase if the documents table is completely empty.
+ */
+export async function seedInitialDatabaseIfEmpty(
+  seedDocs: Document[],
+  seedChunks: Chunk[],
+  seedAudit: AuditLogEntry[],
+  seedReports: ReportRecord[],
+  seedRequests: UserAccessRequest[]
+): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
+  try {
+    const { count, error } = await supabase
+      .from('documents')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) {
+      console.warn('[Supabase] Seed check error:', error.message);
+      return false;
+    }
+
+    if (count !== null && count > 0) {
+      return false; // Already populated
+    }
+
+    console.log('[Supabase] Database is empty. Seeding initial CMPDI documents and records...');
+
+    for (const doc of seedDocs) {
+      const docChunks = seedChunks.filter(c => c.documentId === doc.id);
+      await persistNewDocument(doc, docChunks);
+    }
+
+    for (const log of seedAudit.slice(0, 10)) {
+      await persistAuditLog(log);
+    }
+
+    for (const rep of seedReports.slice(0, 5)) {
+      await persistReportRecord(rep);
+    }
+
+    for (const req of seedRequests.slice(0, 5)) {
+      await persistUserAccessRequest(req);
+    }
+
+    console.log('[Supabase] Initial seed completed successfully.');
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Seed execution exception:', err);
     return false;
   }
 }

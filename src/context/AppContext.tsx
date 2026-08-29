@@ -39,11 +39,18 @@ import {
   fetchAllDocuments, 
   fetchDocumentChunks, 
   fetchAuditLogsFromSupabase,
+  fetchUserAccessRequests,
+  persistUserAccessRequest,
+  updateUserAccessRequestStatus,
+  fetchAllReports,
+  persistReportRecord,
+  fetchTopicInsights,
   persistNewDocument,
   persistNewVersion,
   deleteDocumentFromSupabase,
   persistApprovalReview,
-  persistAuditLog
+  persistAuditLog,
+  seedInitialDatabaseIfEmpty
 } from '../services/supabaseDataService';
 
 export type AppView = 
@@ -343,19 +350,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!client) return;
 
     try {
-      const [remoteDocs, remoteChunks, remoteAudit] = await Promise.all([
+      // 1. Check if database is empty on first boot, auto-seed with CMPDI data
+      await seedInitialDatabaseIfEmpty(
+        SEED_DOCUMENTS,
+        SEED_CHUNKS,
+        SEED_AUDIT_LOGS,
+        SEED_REPORTS,
+        SEED_ACCESS_REQUESTS
+      );
+
+      // 2. Fetch all collections in parallel from Supabase
+      const [remoteDocs, remoteChunks, remoteAudit, remoteRequests, remoteReports, remoteTopics] = await Promise.all([
         fetchAllDocuments(),
         fetchDocumentChunks(),
         fetchAuditLogsFromSupabase(),
+        fetchUserAccessRequests(),
+        fetchAllReports(),
+        fetchTopicInsights(),
       ]);
 
       if (remoteDocs !== null && remoteDocs.length > 0) {
         setDocuments(prev => {
           const remoteDocIds = new Set(remoteDocs.map(d => d.id));
-          // Preserve any local document that is pending or not yet in Supabase
           const localOnlyDocs = prev.filter(localDoc => !remoteDocIds.has(localDoc.id));
 
-          // Merge versions for existing docs
           const mergedRemoteDocs = remoteDocs.map(rDoc => {
             const localDoc = prev.find(ld => ld.id === rDoc.id);
             if (!localDoc) return rDoc;
@@ -378,10 +396,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           try {
             localStorage.setItem('khanij_documents', JSON.stringify(mergedAll));
           } catch (e) {}
-          console.log(`[Supabase Live Database] Synchronized ${mergedAll.length} documents (including ${localOnlyDocs.length} pending local records).`);
           return mergedAll;
         });
       }
+
       if (remoteChunks !== null && remoteChunks.length > 0) {
         setChunks(prev => {
           const remoteChunkIds = new Set(remoteChunks.map(c => c.id));
@@ -393,9 +411,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return mergedChunks;
         });
       }
+
       if (remoteAudit !== null && remoteAudit.length > 0) {
         setAuditLogs(remoteAudit);
-        localStorage.setItem('khanij_audit_logs', JSON.stringify(remoteAudit));
+        try {
+          localStorage.setItem('khanij_audit_logs', JSON.stringify(remoteAudit));
+        } catch (e) {}
+      }
+
+      if (remoteRequests !== null && remoteRequests.length > 0) {
+        setAccessRequests(remoteRequests);
+        try {
+          localStorage.setItem('khanij_access_requests', JSON.stringify(remoteRequests));
+        } catch (e) {}
+      }
+
+      if (remoteReports !== null && remoteReports.length > 0) {
+        setReports(remoteReports);
+        try {
+          localStorage.setItem('khanij_reports', JSON.stringify(remoteReports));
+        } catch (e) {}
+      }
+
+      if (remoteTopics !== null && remoteTopics.length > 0) {
+        setTopicInsights(remoteTopics);
       }
     } catch (err) {
       console.warn('[Supabase] Data sync notice:', err);
@@ -405,6 +444,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Sync with Supabase on initial application boot
   useEffect(() => {
     reloadFromSupabase();
+  }, [reloadFromSupabase]);
+
+  // Realtime Multi-User Sync via Supabase Channels
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const client = getSupabase();
+    if (!client) return;
+
+    const channel = client
+      .channel('minemind_realtime_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => {
+        console.log('[Supabase Realtime] Change detected on documents table. Synchronizing...');
+        reloadFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'document_versions' }, () => {
+        console.log('[Supabase Realtime] Change detected on document_versions table. Synchronizing...');
+        reloadFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'approvals' }, () => {
+        console.log('[Supabase Realtime] Change detected on approvals table. Synchronizing...');
+        reloadFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => {
+        console.log('[Supabase Realtime] Change detected on audit_logs table. Synchronizing...');
+        reloadFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_access_requests' }, () => {
+        console.log('[Supabase Realtime] Change detected on user_access_requests table. Synchronizing...');
+        reloadFromSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, () => {
+        console.log('[Supabase Realtime] Change detected on reports table. Synchronizing...');
+        reloadFromSupabase();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Subscribed to live database changes channel.');
+        }
+      });
+
+    return () => {
+      client.removeChannel(channel);
+    };
   }, [reloadFromSupabase]);
 
   // Supabase Auth Session Listener & Real-time Boot Check
@@ -1082,6 +1164,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAccessRequests(prev => [newReq, ...prev.filter(r => r.email !== newReq.email)]);
     setAllUsers(prev => [newUser, ...prev.filter(u => u.email !== newUser.email)]);
 
+    if (isSupabaseConfigured && !isUndergroundModeActive) {
+      persistUserAccessRequest(newReq);
+    }
+
     logAuditAction('AI_QUERY', `Account registered & provisioned for ${newUser.name} (${newUser.subsidiary} - ${newUser.employeeId})`);
     setToastMessage({ type: 'success', text: `Account created for ${newUser.name}. You can now sign in with your credentials.` });
 
@@ -1100,6 +1186,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAccessRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved' as AccountStatus, approvedAt: new Date().toISOString(), approvedBy: currentUser.name } : r));
     setAllUsers(prev => prev.map(u => (u.email.toLowerCase() === req.email.toLowerCase() || u.employeeId.toLowerCase() === req.employeeId.toLowerCase()) ? { ...u, status: 'approved' as AccountStatus, approvedAt: new Date().toISOString() } : u));
 
+    if (isSupabaseConfigured && !isUndergroundModeActive) {
+      updateUserAccessRequestStatus(requestId, 'approved', currentUser.name);
+    }
+
     logAuditAction('APPROVE_VERSION', `Administrator approved access request for ${req.name} (${req.employeeId})`);
     setToastMessage({ type: 'success', text: `Access request approved for ${req.name}. User can now sign in.` });
   };
@@ -1110,6 +1200,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setAccessRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'rejected' as AccountStatus, rejectedReason: reason } : r));
     setAllUsers(prev => prev.map(u => (u.email.toLowerCase() === req.email.toLowerCase() || u.employeeId.toLowerCase() === req.employeeId.toLowerCase()) ? { ...u, status: 'rejected' as AccountStatus, rejectedReason: reason } : u));
+
+    if (isSupabaseConfigured && !isUndergroundModeActive) {
+      updateUserAccessRequestStatus(requestId, 'rejected', currentUser.name, reason);
+    }
 
     logAuditAction('REJECT_VERSION', `Administrator rejected access request for ${req.name}: ${reason}`);
     setToastMessage({ type: 'warning', text: `Access request rejected for ${req.name}.` });
@@ -1548,6 +1642,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setReports(prev => [newReport, ...prev]);
+
+    if (isSupabaseConfigured && !isUndergroundModeActive) {
+      persistReportRecord(newReport);
+    }
+
     logAuditAction('GENERATE_REPORT', `Generated ${newReport.title} for ${newReport.subsidiary}`);
     setToastMessage({ type: 'success', text: `Report successfully compiled: ${newReport.reportCode}` });
     return newReport;

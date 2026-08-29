@@ -29,7 +29,10 @@ import {
   UserCheck2,
   Calendar,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Search,
+  ArrowUpDown,
+  ChevronLeft
 } from 'lucide-react';
 
 export const ApprovalQueue: React.FC = () => {
@@ -51,6 +54,10 @@ export const ApprovalQueue: React.FC = () => {
   const [activeQueueTab, setActiveQueueTab] = useState<'pending' | 'access-requests'>('pending');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
   const [queueSubsidiaryFilter, setQueueSubsidiaryFilter] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'priority' | 'newest' | 'oldest' | 'compliance'>('priority');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 8;
   const [selectedQueueItem, setSelectedQueueItem] = useState<{ doc: Document; version: DocumentVersion } | null>(null);
   const [actionModalType, setActionModalType] = useState<'approve' | 'reject' | 'changes' | null>(null);
   const [modalNote, setModalNote] = useState<string>('');
@@ -89,15 +96,48 @@ export const ApprovalQueue: React.FC = () => {
 
   const pendingAccessRequestsCount = accessRequests.filter(r => r.status === 'pending').length;
 
-  const filteredPendingQueue = pendingItems.filter(item => {
-    if (queueSubsidiaryFilter !== 'ALL' && item.doc.subsidiary !== queueSubsidiaryFilter) {
-      return false;
-    }
-    if (priorityFilter !== 'ALL' && item.version.approvalPriority !== priorityFilter) {
-      return false;
-    }
-    return true;
-  });
+  const filteredPendingQueue = pendingItems
+    .filter(item => {
+      if (queueSubsidiaryFilter !== 'ALL' && item.doc.subsidiary !== queueSubsidiaryFilter) {
+        return false;
+      }
+      if (priorityFilter !== 'ALL' && item.version.approvalPriority !== priorityFilter) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = item.doc.title?.toLowerCase().includes(q);
+        const matchesCode = item.doc.documentCode?.toLowerCase().includes(q);
+        const matchesUser = item.version.uploadedBy?.name?.toLowerCase().includes(q);
+        const matchesReason = item.version.reasonForChange?.toLowerCase().includes(q);
+        const matchesFile = item.version.fileName?.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesCode && !matchesUser && !matchesReason && !matchesFile) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'priority') {
+        const score = (priority?: string) => priority === 'urgent' ? 3 : priority === 'normal' ? 2 : 1;
+        return score(b.version.approvalPriority) - score(a.version.approvalPriority);
+      }
+      if (sortBy === 'newest') {
+        return new Date(b.version.uploadedAt).getTime() - new Date(a.version.uploadedAt).getTime();
+      }
+      if (sortBy === 'oldest') {
+        return new Date(a.version.uploadedAt).getTime() - new Date(b.version.uploadedAt).getTime();
+      }
+      if (sortBy === 'compliance') {
+        const scoreA = evaluateDocumentCompliance(a.doc, a.version).overallScore;
+        const scoreB = evaluateDocumentCompliance(b.doc, b.version).overallScore;
+        return scoreA - scoreB; // Lowest compliance first to inspect risks
+      }
+      return 0;
+    });
+
+  const totalPages = Math.ceil(filteredPendingQueue.length / itemsPerPage) || 1;
+  const paginatedPendingQueue = filteredPendingQueue.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const urgentCount = pendingItems.filter(p => p.version.approvalPriority === 'urgent').length;
   const normalCount = pendingItems.filter(p => p.version.approvalPriority === 'normal').length;
@@ -198,77 +238,129 @@ export const ApprovalQueue: React.FC = () => {
       {/* TAB 1: PENDING SUBMISSIONS */}
       {activeQueueTab === 'pending' && (
         <div className="space-y-5">
-          {/* Filter Toolbar */}
-          <div className="bg-white border border-[#E4E0D6] rounded-xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <div className="flex items-center gap-1.5 text-[#64748B] font-medium">
-                <Filter className="w-3.5 h-3.5 text-[#C8892E]" />
-                <span>Priority:</span>
+          {/* Search, Filter & Sort Toolbar */}
+          <div className="bg-white border border-[#E4E0D6] rounded-xl p-4 shadow-xs space-y-3">
+            {/* Top row: Search input + Sorting selector */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="input-approval-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search by document title, code, submitter name, or change reason..."
+                  className="w-full pl-9 pr-8 py-2 bg-[#FAF8F3] border border-[#E4E0D6] rounded-lg text-xs text-[#141C2B] placeholder:text-[#94A3B8] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#C8892E]"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setCurrentPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#64748B] hover:text-[#141C2B]"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
 
-              <button
-                onClick={() => setPriorityFilter('ALL')}
-                className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all ${
-                  priorityFilter === 'ALL' ? 'bg-[#141C2B] text-white' : 'bg-[#FAF8F3] text-[#64748B] hover:bg-[#EFEBE2]'
-                }`}
-              >
-                All ({pendingItems.length})
-              </button>
-
-              <button
-                onClick={() => setPriorityFilter('urgent')}
-                className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  priorityFilter === 'urgent' ? 'bg-[#DC2626] text-white' : 'bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2]'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-[#DC2626] animate-pulse" />
-                <span>Urgent ({urgentCount})</span>
-              </button>
-
-              <button
-                onClick={() => setPriorityFilter('normal')}
-                className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all ${
-                  priorityFilter === 'normal' ? 'bg-[#D97706] text-white' : 'bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A]'
-                }`}
-              >
-                Normal ({normalCount})
-              </button>
-
-              <button
-                onClick={() => setPriorityFilter('routine')}
-                className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all ${
-                  priorityFilter === 'routine' ? 'bg-[#16A34A] text-white' : 'bg-[#F0FDF4] text-[#166534] hover:bg-[#DCFCE7]'
-                }`}
-              >
-                Routine ({routineCount})
-              </button>
-
-              <div className="h-4 w-px bg-[#E4E0D6] mx-1 hidden sm:block" />
-
-              {/* Subsidiary filter dropdown */}
-              <div className="flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-[#64748B]" />
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-[#64748B] font-medium">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-[#C8892E]" />
+                  <span>Sort:</span>
+                </div>
                 <select
-                  value={queueSubsidiaryFilter}
-                  onChange={(e) => setQueueSubsidiaryFilter(e.target.value)}
-                  className="bg-[#FAF8F3] border border-[#E4E0D6] text-[#141C2B] text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-1 focus:ring-[#C8892E] outline-none cursor-pointer"
+                  value={sortBy}
+                  onChange={(e: any) => {
+                    setSortBy(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="bg-[#FAF8F3] border border-[#E4E0D6] text-[#141C2B] text-xs rounded-lg px-2.5 py-2 font-medium focus:ring-1 focus:ring-[#C8892E] outline-none cursor-pointer"
                 >
-                  <option value="ALL">All Subsidiaries</option>
-                  <option value="CMPDI HQ">CMPDI HQ</option>
-                  <option value="BCCL">BCCL</option>
-                  <option value="SECL">SECL</option>
-                  <option value="ECL">ECL</option>
-                  <option value="CCL">CCL</option>
-                  <option value="WCL">WCL</option>
-                  <option value="MCL">MCL</option>
-                  <option value="NCL">NCL</option>
+                  <option value="priority">Priority First (Urgent → Normal → Routine)</option>
+                  <option value="newest">Newest Submissions</option>
+                  <option value="oldest">Oldest Submissions</option>
+                  <option value="compliance">Lowest Compliance Score First</option>
                 </select>
               </div>
             </div>
 
-            <span className="text-xs font-mono text-[#64748B]">
-              Showing {filteredPendingQueue.length} of {pendingItems.length}
-            </span>
+            {/* Bottom row: Priority Pills & Subsidiary Filter */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#EFEBE2]">
+              <div className="flex flex-wrap items-center gap-2.5 text-xs">
+                <div className="flex items-center gap-1 text-[#64748B] font-medium">
+                  <Filter className="w-3 h-3 text-[#C8892E]" />
+                  <span>Filter:</span>
+                </div>
+
+                <button
+                  onClick={() => { setPriorityFilter('ALL'); setCurrentPage(1); }}
+                  className={`px-2.5 py-1 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer ${
+                    priorityFilter === 'ALL' ? 'bg-[#141C2B] text-white' : 'bg-[#FAF8F3] text-[#64748B] hover:bg-[#EFEBE2]'
+                  }`}
+                >
+                  All ({pendingItems.length})
+                </button>
+
+                <button
+                  onClick={() => { setPriorityFilter('urgent'); setCurrentPage(1); }}
+                  className={`px-2.5 py-1 rounded-lg font-mono text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    priorityFilter === 'urgent' ? 'bg-[#DC2626] text-white' : 'bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2]'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse" />
+                  <span>Urgent ({urgentCount})</span>
+                </button>
+
+                <button
+                  onClick={() => { setPriorityFilter('normal'); setCurrentPage(1); }}
+                  className={`px-2.5 py-1 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer ${
+                    priorityFilter === 'normal' ? 'bg-[#D97706] text-white' : 'bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A]'
+                  }`}
+                >
+                  Normal ({normalCount})
+                </button>
+
+                <button
+                  onClick={() => { setPriorityFilter('routine'); setCurrentPage(1); }}
+                  className={`px-2.5 py-1 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer ${
+                    priorityFilter === 'routine' ? 'bg-[#16A34A] text-white' : 'bg-[#F0FDF4] text-[#166534] hover:bg-[#DCFCE7]'
+                  }`}
+                >
+                  Routine ({routineCount})
+                </button>
+
+                <div className="h-4 w-px bg-[#E4E0D6] mx-1 hidden sm:block" />
+
+                {/* Subsidiary filter dropdown */}
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-[#64748B]" />
+                  <select
+                    value={queueSubsidiaryFilter}
+                    onChange={(e) => { setQueueSubsidiaryFilter(e.target.value); setCurrentPage(1); }}
+                    className="bg-[#FAF8F3] border border-[#E4E0D6] text-[#141C2B] text-xs rounded-lg px-2.5 py-1 font-medium focus:ring-1 focus:ring-[#C8892E] outline-none cursor-pointer"
+                  >
+                    <option value="ALL">All Subsidiaries</option>
+                    <option value="CMPDI HQ">CMPDI HQ</option>
+                    <option value="BCCL">BCCL</option>
+                    <option value="SECL">SECL</option>
+                    <option value="ECL">ECL</option>
+                    <option value="CCL">CCL</option>
+                    <option value="WCL">WCL</option>
+                    <option value="MCL">MCL</option>
+                    <option value="NCL">NCL</option>
+                  </select>
+                </div>
+              </div>
+
+              <span className="text-xs font-mono text-[#64748B]">
+                Showing {filteredPendingQueue.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredPendingQueue.length)} of {filteredPendingQueue.length}
+              </span>
+            </div>
           </div>
 
           {/* Pending Submissions List */}
@@ -292,7 +384,7 @@ export const ApprovalQueue: React.FC = () => {
               </div>
             ) : (
               <div className="divide-y divide-[#EFEBE2]">
-                {filteredPendingQueue.map(({ doc, version }) => {
+                {paginatedPendingQueue.map(({ doc, version }) => {
                   const isUrgent = version.approvalPriority === 'urgent';
                   const previousVersion = doc.versions.find(v => v.versionNumber === version.versionNumber - 1) || doc.versions[1] || doc.versions[0];
                   const aiEval = evaluateDocumentCompliance(doc, version);
@@ -471,6 +563,59 @@ export const ApprovalQueue: React.FC = () => {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-[#EFEBE2] bg-[#FAF8F3] flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-[#64748B] font-mono">
+                  Page <strong className="text-[#141C2B]">{currentPage}</strong> of <strong className="text-[#141C2B]">{totalPages}</strong> ({filteredPendingQueue.length} total items)
+                </span>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1 transition-all ${
+                      currentPage === 1
+                        ? 'bg-[#E2E8F0] text-[#94A3B8] border-[#CBD5E1] cursor-not-allowed'
+                        : 'bg-white hover:bg-[#EFEBE2] text-[#141C2B] border-[#E4E0D6] cursor-pointer shadow-2xs'
+                    }`}
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Previous</span>
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                      <button
+                        key={pg}
+                        onClick={() => setCurrentPage(pg)}
+                        className={`w-7 h-7 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                          currentPage === pg
+                            ? 'bg-[#141C2B] text-white shadow-2xs'
+                            : 'bg-white hover:bg-[#EFEBE2] text-[#64748B] border border-[#E4E0D6]'
+                        }`}
+                      >
+                        {pg}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1 transition-all ${
+                      currentPage === totalPages
+                        ? 'bg-[#E2E8F0] text-[#94A3B8] border-[#CBD5E1] cursor-not-allowed'
+                        : 'bg-white hover:bg-[#EFEBE2] text-[#141C2B] border-[#E4E0D6] cursor-pointer shadow-2xs'
+                    }`}
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>

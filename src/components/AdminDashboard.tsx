@@ -77,39 +77,36 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div id="admin-dashboard" className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 max-w-7xl mx-auto">
-      {/* Priority-Sorted Approval Summary Card */}
-      <div className="bg-white border border-[#E4E0D6] rounded-2xl p-5 sm:p-7 shadow-xs space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#EFEBE2]">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-[#C8892E] font-bold uppercase tracking-wider mb-1">
-              <span>Central Governance</span>
-              <span>·</span>
+      {/* Priority-Sorted Approval Summary Card (Compact & Streamlined) */}
+      <div className="bg-white border border-[#E4E0D6] rounded-xl p-4 sm:p-5 shadow-xs space-y-3.5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#EFEBE2]">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-1.5 text-xs font-mono text-[#C8892E] font-bold uppercase tracking-wider">
               <span>Approval Queue</span>
+              <span>·</span>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="font-serif font-bold text-xl sm:text-2xl text-[#141C2B]">
-                {pendingApprovals.length} Pending Technical Approvals
-              </h2>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
-                  <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse" />
-                  <span>{urgentCount} Urgent</span>
+            <h2 className="font-serif font-bold text-lg sm:text-xl text-[#141C2B]">
+              {pendingApprovals.length} Pending Approvals
+            </h2>
+            <div className="flex items-center gap-1.5 ml-1">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-pulse" />
+                <span>{urgentCount} Urgent</span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#EAB308]" />
+                <span>{normalCount} Normal</span>
+              </span>
+              {routineCount > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
+                  <span>{routineCount} Routine</span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
-                  <span className="w-2 h-2 rounded-full bg-[#EAB308]" />
-                  <span>{normalCount} Normal</span>
-                </span>
-                {routineCount > 0 && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
-                    <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
-                    <span>{routineCount} Routine</span>
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <button
               id="btn-admin-quick-demo-mismatch"
               onClick={() => {
@@ -128,27 +125,27 @@ export const AdminDashboard: React.FC = () => {
                   }
                 }, 150);
               }}
-              className="px-3.5 py-2 rounded-lg bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Shortcut: Jump directly to the CMPDI HQ-984 Category Mismatch item in the Approval Queue"
+              className="px-2.5 py-1.5 rounded-lg bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+              title="Shortcut: Jump directly to Category Mismatch item"
             >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Demo Category Mismatch</span>
+              <Play className="w-3 h-3 fill-current" />
+              <span>Demo Mismatch</span>
             </button>
 
             <button
               id="btn-admin-bulk-routine"
               onClick={() => bulkApproveRoutine()}
-              className="px-3.5 py-2 rounded-lg bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#16A34A] border border-[#BBF7D0] text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="px-2.5 py-1.5 rounded-lg bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#16A34A] border border-[#BBF7D0] text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
               title="Bulk sign-off routine items"
             >
-              <Zap className="w-3.5 h-3.5 text-[#16A34A]" />
-              <span>Bulk Routine Approve</span>
+              <Zap className="w-3 h-3 text-[#16A34A]" />
+              <span>Bulk Routine ({routineCount})</span>
             </button>
 
             <button
               id="btn-admin-view-all-queue"
               onClick={() => setActiveView('approval-queue')}
-              className="px-4 py-2 rounded-lg bg-[#141C2B] hover:bg-[#1E293B] text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-[#141C2B] hover:bg-[#1E293B] text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
               <CheckSquare className="w-3.5 h-3.5 text-[#C8892E]" />
               <span>Open Queue ({pendingApprovals.length})</span>
@@ -156,76 +153,65 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Priority Items List */}
-        <div className="space-y-3">
+        {/* 2 Recent Items Preview */}
+        <div className="space-y-2">
           {pendingApprovals.length === 0 ? (
-            <div className="py-6 text-center text-xs text-[#64748B] font-mono bg-[#FAF8F3] rounded-xl border border-[#E4E0D6]">
-              ✓ All subsidiary submissions are currently verified and indexed into the knowledge base.
+            <div className="py-4 text-center text-xs text-[#64748B] font-mono bg-[#FAF8F3] rounded-lg border border-[#E4E0D6]">
+              ✓ All submissions are currently verified and indexed into the knowledge base.
             </div>
           ) : (
-            pendingApprovals.slice(0, 5).map(({ doc, version }) => {
+            pendingApprovals.slice(0, 2).map(({ doc, version }) => {
               const isUrgent = version.approvalPriority === 'urgent';
 
               return (
                 <div 
                   key={version.id}
-                  className={`rounded-xl border p-4 transition-all ${
+                  className={`rounded-lg border px-3.5 py-2.5 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
                     isUrgent 
-                      ? 'bg-[#FEF2F2]/40 border-[#FECACA]' 
+                      ? 'bg-[#FEF2F2]/50 border-[#FECACA]' 
                       : 'bg-[#FAF8F3] border-[#E4E0D6]'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
-                      <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full ${
-                        isUrgent ? 'bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA]' : 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
-                      }`}>
-                        {isUrgent ? 'URGENT REVIEW' : 'STANDARD REVIEW'}
-                      </span>
-                      <span className="text-sm font-bold text-[#141C2B] truncate">
-                        {doc.title}
-                      </span>
-                      <span className="text-[10px] font-mono font-bold text-[#64748B] bg-white border border-[#E4E0D6] px-2 py-0.5 rounded">
-                        v{version.versionNumber}.0 · {doc.subsidiary}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => {
-                          const prevVer = doc.versions.find((v: any) => v.versionNumber === version.versionNumber - 1) || doc.versions[0];
-                          setCompareVersions({ v1: prevVer, v2: version, doc });
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-[#F1F5F9] border border-[#E4E0D6] text-xs font-semibold text-[#141C2B] transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <span>Compare Diff</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-[#64748B]" />
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                      isUrgent ? 'bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA]' : 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
+                    }`}>
+                      {isUrgent ? 'URGENT' : 'NORMAL'}
+                    </span>
+                    <span className="text-xs font-bold text-[#141C2B] truncate" title={doc.title}>
+                      {doc.title}
+                    </span>
+                    <span className="text-[10px] font-mono text-[#64748B] bg-white border border-[#E4E0D6] px-1.5 py-0.5 rounded flex-shrink-0 hidden md:inline-block">
+                      v{version.versionNumber}.0 · {doc.subsidiary}
+                    </span>
                   </div>
 
-                  {/* AI Flagged Risk Summary */}
-                  {version.aiRiskReason && (
-                    <div className="mt-3 pt-2.5 border-t border-[#FECACA] flex items-start gap-2 text-xs text-[#991B1B] bg-white p-2.5 rounded-lg border border-[#FCA5A5]/60">
-                      <AlertTriangle className="w-4 h-4 flex-shrink-0 text-[#DC2626] mt-0.5" />
-                      <div>
-                        <span className="font-bold text-[#7F1D1D]">AI Governance Flag: </span>
-                        <span>{version.aiRiskReason}</span>
-                      </div>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
+                    <button
+                      onClick={() => {
+                        const prevVer = doc.versions.find((v: any) => v.versionNumber === version.versionNumber - 1) || doc.versions[0];
+                        setCompareVersions({ v1: prevVer, v2: version, doc });
+                      }}
+                      className="px-2.5 py-1 rounded bg-white hover:bg-[#F1F5F9] border border-[#E4E0D6] text-[11px] font-semibold text-[#141C2B] transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>Diff</span>
+                      <ChevronRight className="w-3 h-3 text-[#64748B]" />
+                    </button>
+                  </div>
                 </div>
               );
             })
           )}
 
-          {pendingApprovals.length > 5 && (
-            <div className="pt-2 text-center">
+          {pendingApprovals.length > 2 && (
+            <div className="pt-1 flex items-center justify-between text-xs font-mono text-[#64748B] px-1">
+              <span>Showing 2 of {pendingApprovals.length} pending submissions</span>
               <button
                 onClick={() => setActiveView('approval-queue')}
-                className="text-xs font-bold text-[#C8892E] hover:underline cursor-pointer"
+                className="font-bold text-[#C8892E] hover:underline cursor-pointer flex items-center gap-1"
               >
-                + {pendingApprovals.length - 5} more pending approvals in Central Queue →
+                <span>View all {pendingApprovals.length} in Central Queue</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
@@ -419,115 +405,58 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Two Column Grid: System Activity & Topic Insights Widget */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column: Recent System Audit Activity Feed */}
-        <div className="bg-white border border-[#E4E0D6] rounded-xl p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#EFEBE2]">
-              <div>
-                <h3 className="font-serif font-bold text-base text-[#141C2B]">
-                  System-Wide Activity & Audit Stream
-                </h3>
-                <p className="text-[11px] text-[#64748B]">
-                  Real-time log of document submissions, approvals, and queries
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveView('audit-trail')}
-                className="text-xs font-semibold text-[#C8892E] hover:underline flex items-center gap-1"
-              >
-                <span>Full Audit Trail</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+      {/* Knowledge Topic Distribution Widget */}
+      <div className="bg-white border border-[#E4E0D6] rounded-xl p-6 shadow-xs flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#EFEBE2]">
+            <div>
+              <h3 className="font-serif font-bold text-base text-[#141C2B]">
+                Knowledge Topic Distribution
+              </h3>
+              <p className="text-[11px] text-[#64748B]">
+                High-frequency technical topics across subsidiaries
+              </p>
             </div>
-
-            <div className="space-y-3">
-              {auditLogs.slice(0, 4).map((log) => (
-                <div 
-                  key={log.id}
-                  className="p-3 rounded-lg border border-[#E4E0D6] bg-[#FAF8F3] flex items-start justify-between gap-3 text-xs"
-                >
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-[10px] font-bold bg-[#EFEBE2] px-1.5 py-0.5 rounded text-[#141C2B]">
-                        {log.action}
-                      </span>
-                      <span className="font-mono text-[10px] text-[#64748B]">
-                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      <span className="text-[10px] font-semibold text-[#64748B]">
-                        {log.actorName} ({log.actorSubsidiary})
-                      </span>
-                    </div>
-                    <p className="text-[#334155] leading-relaxed">
-                      {log.details}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <button
+              onClick={() => setActiveView('ai-insights')}
+              className="text-xs font-semibold text-[#C8892E] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>Open AI Insights</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-[#EFEBE2] flex items-center justify-between text-xs text-[#64748B]">
-            <span>Audit Integrity: Immutable SHA-256 Ledger</span>
-            <span className="font-mono text-[11px] text-[#141C2B]">{auditLogs.length} Events Logged</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {topicInsights.slice(0, 4).map((t) => (
+              <div 
+                key={t.topic}
+                className="p-3 rounded-lg border border-[#E4E0D6] bg-[#FAF8F3] flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="font-bold text-[#141C2B] truncate">{t.topic}</span>
+                    <span className="font-mono text-[10px] text-[#64748B] font-semibold">{t.occurrences} references</span>
+                  </div>
+                  {/* Progress Bar */}
+                  <div className="w-full h-2 bg-[#EFEBE2] rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-[#C8892E] rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, (t.occurrences / 150) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <span className="text-[10px] font-mono font-bold bg-[#EFEBE2] px-2 py-1 rounded text-[#141C2B] flex-shrink-0">
+                  {t.confidence}% Conf
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Right Column: AI Topic Trend Mini Widget */}
-        <div className="bg-white border border-[#E4E0D6] rounded-xl p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#EFEBE2]">
-              <div>
-                <h3 className="font-serif font-bold text-base text-[#141C2B]">
-                  Knowledge Topic Distribution
-                </h3>
-                <p className="text-[11px] text-[#64748B]">
-                  High-frequency technical topics across subsidiaries
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveView('ai-insights')}
-                className="text-xs font-semibold text-[#C8892E] hover:underline flex items-center gap-1"
-              >
-                <span>Open AI Insights</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {topicInsights.slice(0, 4).map((t) => (
-                <div 
-                  key={t.topic}
-                  className="p-3 rounded-lg border border-[#E4E0D6] bg-[#FAF8F3] flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-bold text-[#141C2B] truncate">{t.topic}</span>
-                      <span className="font-mono text-[10px] text-[#64748B] font-semibold">{t.occurrences} references</span>
-                    </div>
-                    {/* Progress Bar */}
-                    <div className="w-full h-2 bg-[#EFEBE2] rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-[#C8892E] rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, (t.occurrences / 150) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <span className="text-[10px] font-mono font-bold bg-[#EFEBE2] px-2 py-1 rounded text-[#141C2B] flex-shrink-0">
-                    {t.confidence}% Conf
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-[#EFEBE2] flex items-center justify-between text-xs text-[#64748B]">
-            <span>Topic Cluster Resolution</span>
-            <span className="text-[#C8892E] font-semibold">Real-time Semantic Index</span>
-          </div>
+        <div className="mt-4 pt-3 border-t border-[#EFEBE2] flex items-center justify-between text-xs text-[#64748B]">
+          <span>Topic Cluster Resolution</span>
+          <span className="text-[#C8892E] font-semibold">Real-time Semantic Index</span>
         </div>
       </div>
     </div>

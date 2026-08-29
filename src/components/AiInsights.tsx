@@ -83,6 +83,21 @@ export const AiInsights: React.FC = () => {
     confidence: t.confidence
   }));
 
+  // Helper to simplify and clarify question text for scannability
+  const simplifyQuestionText = (text: string): string => {
+    if (!text) return '';
+    if (text.includes('approved proved coal reserve figure and grade for Korba West') || text.includes('Korba West Seam IV/V') || text.includes('proved coal reserve')) {
+      return 'What is the proved coal reserve and grade for Korba West?';
+    }
+    if (text.includes('mandatory liquid nitrogen infusion rate') || text.includes('Jharia mine fire zones') || text.includes('Jharia fire zones')) {
+      return 'What are the nitrogen infusion rate & temperature limits for Jharia fire zones?';
+    }
+    if (text.includes('initial borehole reserve estimate for Korba West') || text.includes('early 2023') || text.includes('initial 2023 reserve')) {
+      return 'What was the initial 2023 reserve estimate for Korba West?';
+    }
+    return text;
+  };
+
   return (
     <div id="ai-insights-view" className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Header Banner */}
@@ -269,14 +284,14 @@ export const AiInsights: React.FC = () => {
 
       {/* Frequently Asked Panel with Staleness Detection */}
       <div className="bg-white border border-[#E4E0D6] rounded-xl p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-[#EFEBE2]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#EFEBE2] gap-2">
           <div>
             <h3 className="font-serif font-bold text-base text-[#141C2B] flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-[#C8892E]" />
               <span>Frequently Asked Inquiries & Stale-Answer Detection</span>
             </h3>
-            <p className="text-xs text-[#64748B]">
-              Queries automatically flag when cited documents have newer approved revisions in the repository.
+            <p className="text-xs text-[#64748B] mt-0.5">
+              Simplified questions with real-time statutory freshness verification and document revalidation.
             </p>
           </div>
           <span className="text-xs font-mono text-[#64748B]">
@@ -285,64 +300,87 @@ export const AiInsights: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {queries.map((q) => (
-            <div 
-              key={q.id}
-              className={`p-4 rounded-xl border transition-all ${
-                q.isStale 
-                  ? 'bg-[#FFFBFB] border-[#FECACA]' 
-                  : 'bg-[#FAF8F3] border-[#E4E0D6]'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="text-xs font-bold text-[#141C2B] line-clamp-2">
-                  Q: {q.questionText}
-                </span>
+          {queries.slice(0, 2).map((q) => {
+            const simplifiedQuestion = simplifyQuestionText(q.questionText);
+            const primarySubsidiary = q.citations?.[0]?.subsidiary;
 
+            return (
+              <div 
+                key={q.id}
+                className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                  q.isStale 
+                    ? 'bg-[#FFFBFB] border-[#FECACA]' 
+                    : 'bg-[#FAF8F3] border-[#E4E0D6]'
+                }`}
+              >
+                <div>
+                  {/* Top Question Header */}
+                  <div className="flex items-start justify-between gap-2.5 mb-2.5">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className="text-[11px] font-mono font-bold text-[#C8892E] bg-[#FEF3C7] border border-[#FDE68A] px-1.5 py-0.5 rounded flex-shrink-0">
+                        Q
+                      </span>
+                      <h4 className="text-xs font-bold text-[#141C2B] leading-snug">
+                        {simplifiedQuestion}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {primarySubsidiary && (
+                        <span className="text-[10px] font-mono text-[#64748B] bg-white border border-[#E4E0D6] px-1.5 py-0.5 rounded">
+                          {primarySubsidiary}
+                        </span>
+                      )}
+                      {q.isStale ? (
+                        <span className="flex items-center gap-1 text-[10px] font-mono font-bold bg-[#FEF2F2] text-[#DC2626] px-2 py-0.5 rounded border border-[#FECACA]">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>Updated</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono font-bold bg-[#F0FDF4] text-[#16A34A] px-2 py-0.5 rounded border border-[#BBF7D0]">
+                          ✓ Fresh
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Clean Answer Box */}
+                  <p className="text-xs text-[#334155] leading-relaxed bg-white p-3 rounded-lg border border-[#E4E0D6]/80 mb-3">
+                    {q.answerText}
+                  </p>
+                </div>
+
+                {/* Footer Meta / Re-run Action */}
                 {q.isStale ? (
-                  <span className="flex items-center gap-1 text-[10px] font-mono font-bold bg-[#FEF2F2] text-[#DC2626] px-2 py-0.5 rounded border border-[#FECACA] flex-shrink-0">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span>Source Updated</span>
-                  </span>
+                  <div className="p-2.5 bg-[#FEF2F2] rounded-lg border border-[#FECACA] flex items-center justify-between gap-2 text-xs text-[#991B1B]">
+                    <span className="text-[11px] font-medium truncate">
+                      ⚠️ {q.staleReason || 'Source revised. Revalidation required.'}
+                    </span>
+                    <button
+                      onClick={() => handleRerunStaleQuery(q)}
+                      className="px-2.5 py-1 bg-[#DC2626] hover:bg-[#B91C1C] text-white rounded text-[11px] font-bold flex items-center gap-1 flex-shrink-0 cursor-pointer shadow-2xs"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Re-run</span>
+                    </button>
+                  </div>
                 ) : (
-                  <span className="text-[10px] font-mono font-bold bg-[#F0FDF4] text-[#16A34A] px-2 py-0.5 rounded border border-[#BBF7D0] flex-shrink-0">
-                    ✓ Fresh
-                  </span>
+                  <div className="flex items-center justify-between text-[11px] font-mono text-[#64748B] pt-1">
+                    <span>Confidence: {q.confidence.toFixed(1)}%</span>
+                    {q.citations[0] && (
+                      <button
+                        onClick={() => setActiveCitationForModal(q.citations[0])}
+                        className="text-[#C8892E] font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        <span>Source: {q.citations[0].documentCode}</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-
-              <p className="text-xs text-[#475569] leading-relaxed bg-white p-3 rounded-lg border border-[#E4E0D6]/70 mb-3">
-                {q.answerText}
-              </p>
-
-              {q.isStale ? (
-                <div className="p-2.5 bg-[#FEF2F2] rounded-lg border border-[#FECACA] flex items-center justify-between gap-2 text-xs text-[#991B1B]">
-                  <span className="text-[11px] font-medium">
-                    ⚠️ {q.staleReason || 'Source document revised. Revalidation required.'}
-                  </span>
-                  <button
-                    onClick={() => handleRerunStaleQuery(q)}
-                    className="px-2.5 py-1 bg-[#DC2626] hover:bg-[#B91C1C] text-white rounded text-[11px] font-bold flex items-center gap-1 flex-shrink-0 cursor-pointer"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                    <span>Re-run Query</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between text-[11px] font-mono text-[#64748B]">
-                  <span>Confidence: {q.confidence.toFixed(1)}%</span>
-                  {q.citations[0] && (
-                    <button
-                      onClick={() => setActiveCitationForModal(q.citations[0])}
-                      className="text-[#C8892E] hover:underline cursor-pointer"
-                    >
-                      View Source: {q.citations[0].documentCode} →
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
