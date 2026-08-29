@@ -1,7 +1,7 @@
 {
-  "short_name": "Khanij",
-  "name": "Khanij — AI Knowledge & Reporting (CMPDI & CIL)",
-  "description": "Source-grounded AI knowledge platform with offline underground mining support for Coal India subsidiaries.",
+  "short_name": "MineMind",
+  "name": "MineMind-AI — CMPDI & Coal India Knowledge Platform",
+  "description": "Source-grounded AI knowledge discovery, statutory reporting, and document verification for Coal India subsidiaries.",
   "icons": [
     {
       "src": "/favicon.ico",
@@ -10,7 +10,9 @@
     }
   ],
   "start_url": "/",
-  "display": "standalone",
+  "background_color": "#141C2B",
   "theme_color": "#141C2B",
-  "background_color": "#F7F5F0"
+  "display": "standalone",
+  "orientation": "any",
+  "scope": "/"
 }
