@@ -32,12 +32,35 @@ export async function extractTextFromPdf(fileOrBuffer: File | ArrayBuffer): Prom
     for (let i = 1; i <= maxPagesToScan; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      const pageStrings = textContent.items
-        .map((item: any) => (item.str ? item.str : ''))
-        .join(' ');
-      
-      if (pageStrings.trim().length > 0) {
-        pageTexts.push(`--- Page ${i} ---\n${pageStrings.trim()}`);
+      // Group text items by their vertical position (y coordinate) to preserve line structure & tables
+      const items = textContent.items as any[];
+      let lastY: number | null = null;
+      let pageLines: string[] = [];
+      let currentLine = '';
+
+      for (const item of items) {
+        if (!item.str) continue;
+        const currentY = item.transform ? item.transform[5] : null;
+        
+        if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 5) {
+          if (currentLine.trim().length > 0) {
+            pageLines.push(currentLine.trim());
+          }
+          currentLine = item.str;
+        } else {
+          currentLine += (currentLine.length > 0 && !currentLine.endsWith(' ') ? ' ' : '') + item.str;
+        }
+        if (currentY !== null) {
+          lastY = currentY;
+        }
+      }
+      if (currentLine.trim().length > 0) {
+        pageLines.push(currentLine.trim());
+      }
+
+      const pageText = pageLines.join('\n');
+      if (pageText.trim().length > 0) {
+        pageTexts.push(`--- Page ${i} ---\n${pageText.trim()}`);
       }
     }
 

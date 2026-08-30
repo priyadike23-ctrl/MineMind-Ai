@@ -63,20 +63,28 @@ const MINING_TAXONOMY = {
 // Known Unrelated / Out-of-Domain Non-Mining Lexicon
 const UNRELATED_DOMAINS = [
   {
-    name: 'AI Chatbot & Software Tool Manual',
-    keywords: ['chatgpt', 'openai', 'prompt engineering', 'gpt-4', 'dall-e', 'claude', 'anthropic', 'reasoning level', 'chatbot', 'llm', 'token limit', 'ai assistant settings', 'system prompt', 'canvas mode']
+    name: 'Computer Engineering & Digital Electronics',
+    keywords: [
+      'binary conversion', 'parity-based', 'parity bit', 'parity generator', 'parity checker',
+      'logic gate', 'k-map', 'flip flop', 'boolean algebra', 'truth table', 'multiplexer',
+      'demultiplexer', 'microprocessor', 'microcontroller', 'digital electronics', 'vhdl', 'verilog',
+      'binary code', 'bcd', 'excess-3', 'gray code', 'hamming code', 'arithmetic logic unit'
+    ]
   },
   {
-    name: 'Web & Software Development',
-    keywords: ['react', 'vue', 'angular', 'javascript', 'typescript', 'npm install', 'html5', 'css3', 'webpack', 'vite', 'tailwind css', 'express.js', 'rest api', 'sql server management studio', 'frontend', 'backend framework']
+    name: 'Academic Science Practical & College Lab Manual',
+    keywords: [
+      'aim of the experiment', 'apparatus required', 'theory and formula', 'viva questions', 'lab manual',
+      'practical exam', 'semester exam', 'biomass fuel', 'traditional biomass', 'cookstove', 'fuelwood'
+    ]
   },
   {
-    name: 'Graphic Design & Media Software',
-    keywords: ['photoshop', 'illustrator', 'after effects', 'premiere pro', 'blender 3d', 'render engine', 'video editing', 'vector graphic', 'color grading', 'figma design system']
+    name: 'AI Chatbot & Consumer LLM Tool Manual',
+    keywords: ['chatgpt', 'openai prompt', 'prompt engineering', 'dall-e prompt', 'midjourney prompt', 'anthropic claude prompt']
   },
   {
-    name: 'Generic Consumer & Office Non-Mining Software',
-    keywords: ['microsoft office install', 'excel formula cheatsheet', 'zoom video call setup', 'printer driver setup', 'windows 11 installation', 'recipe', 'cooking guide', 'travel itinerary', 'marketing funnel']
+    name: 'Web & Software Frameworks',
+    keywords: ['npm install', 'react component', 'vue component', 'angular module', 'tailwind config', 'webpack bundle', 'express route handler']
   }
 ];
 
@@ -98,34 +106,47 @@ export function evaluateContentRelevance(
   topicalKeywordsFound: string[];
 } {
   const combinedText = `${docTitle} ${fileName} ${reasonForChange} ${extractedText || ''}`.toLowerCase();
-  
-  // 1. Check for distinct out-of-domain / non-mining patterns
-  let detectedUnrelatedDomain: string | null = null;
-  let unrelatedKeywordHits = 0;
 
-  for (const domain of UNRELATED_DOMAINS) {
-    let hits = 0;
-    for (const kw of domain.keywords) {
-      if (combinedText.includes(kw.toLowerCase())) {
-        hits++;
-      }
-    }
-    if (hits >= 2 || (hits >= 1 && (combinedText.includes('chatgpt') || combinedText.includes('react') || combinedText.includes('photoshop')))) {
-      detectedUnrelatedDomain = domain.name;
-      unrelatedKeywordHits += hits;
-    }
-  }
-
-  // 2. Check for mining domain keywords
+  // 1. Core Mining & Coal India/CMPDI statutory keywords (checked first)
   const matchedMiningKeywords: string[] = [];
   let miningHits = 0;
 
   const allTaxonomyCategories = Object.entries(MINING_TAXONOMY);
-  for (const [catName, keywords] of allTaxonomyCategories) {
+  for (const [, keywords] of allTaxonomyCategories) {
     for (const kw of keywords) {
-      if (combinedText.includes(kw)) {
+      const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      if (regex.test(combinedText)) {
         matchedMiningKeywords.push(kw);
         miningHits++;
+      }
+    }
+  }
+
+  // Also check for standard Coal India subsidiary acronyms & terms
+  const cilSubsidiaryTerms = ['bccl', 'secl', 'wcl', 'ccl', 'mcl', 'ecl', 'ncl', 'cmpdi', 'cil', 'colliery', 'subsidiary', 'variance brief', 'statutory brief'];
+  for (const term of cilSubsidiaryTerms) {
+    const regex = new RegExp(`\\b${term}\\b`, 'i');
+    if (regex.test(combinedText)) {
+      matchedMiningKeywords.push(term);
+      miningHits++;
+    }
+  }
+
+  // 2. Immediate Check: Definite Non-mining subject patterns
+  for (const domain of UNRELATED_DOMAINS) {
+    for (const kw of domain.keywords) {
+      if (combinedText.includes(kw.toLowerCase())) {
+        // If the document has strong mining domain keywords, don't falsely reject on incidental matches
+        if (miningHits >= 3) continue;
+
+        return {
+          contentScore: 18,
+          isRelevant: false,
+          detectedSubject: `${domain.name} ("${kw}")`,
+          expectedCategory: 'CMPDI / Coal India Mining & Geological Technical Filing',
+          mismatchReason: `Document rejected: Detected non-mining subject ("${kw}"). Upload only official CMPDI/CIL geological reports, borehole logs, DGMS safety circulars, or colliery production data.`,
+          topicalKeywordsFound: []
+        };
       }
     }
   }
@@ -144,31 +165,15 @@ export function evaluateContentRelevance(
     expectedCategory = 'HEMM Heavy Machinery Telemetry, Coal Production & Dispatch Audit';
   }
 
-  // 3. Category Mismatch Detection
-  if (detectedUnrelatedDomain && miningHits <= 2) {
-    // Definitive Out-of-Domain Mismatch (e.g., ChatGPT guide uploaded to Geological Filing)
-    const contentScore = Math.max(12, Math.min(26, 15 + Math.round(Math.random() * 5)));
+  // 3. Strict Requirement: Document MUST have at least 2 verified mining taxonomy keywords
+  if (miningHits < 2) {
     return {
-      contentScore,
+      contentScore: 20,
       isRelevant: false,
-      detectedSubject: `${detectedUnrelatedDomain} (${docTitle.slice(0, 45)})`,
+      detectedSubject: `Uncategorized Non-Mining Document ("${docTitle || fileName}")`,
       expectedCategory,
-      mismatchReason: `Document subject matter focuses on "${detectedUnrelatedDomain}" with 0% recognized geological, stripping, strata, or DGMS parameters. Unrelated to Coal India colliery operations.`,
+      mismatchReason: `Document rejected: Insufficient mining domain taxonomy (Found ${miningHits} mining keywords: ${matchedMiningKeywords.join(', ') || 'None'}). Upload only CMPDI geological explorations, borehole logs, DGMS safety SOPs, or colliery returns.`,
       topicalKeywordsFound: matchedMiningKeywords
-    };
-  }
-
-  // If text is very sparse or contains virtually no recognized domain keywords
-  if (miningHits === 0 && (extractedText.length > 100 || docTitle.length > 5)) {
-    const isGeneric = combinedText.includes('guide') || combinedText.includes('manual') || combinedText.includes('document');
-    const contentScore = isGeneric ? 32 : 24;
-    return {
-      contentScore,
-      isRelevant: false,
-      detectedSubject: `Uncategorized Non-Mining Material ("${docTitle.slice(0, 40)}")`,
-      expectedCategory,
-      mismatchReason: `No verified CMPDI geological, operational, or statutory mining taxonomy keywords detected in document contents.`,
-      topicalKeywordsFound: []
     };
   }
 

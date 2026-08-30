@@ -7,6 +7,7 @@ import {
   STORAGE_BUCKET 
 } from '../services/supabaseDataService';
 import { extractTextFromPdf } from '../utils/pdfExtractor';
+import { evaluateContentRelevance } from '../utils/complianceEngine';
 import { 
   Search, 
   Filter, 
@@ -101,6 +102,7 @@ export const KnowledgeCenter: React.FC = () => {
   const [ocrStep, setOcrStep] = useState<number>(0);
   const [isProcessingOcr, setIsProcessingOcr] = useState<boolean>(false);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [domainValidationError, setDomainValidationError] = useState<string | null>(null);
   const [isAnalyzingAiSummary, setIsAnalyzingAiSummary] = useState<boolean>(false);
   const [aiSummaryProvider, setAiSummaryProvider] = useState<string | null>(null);
 
@@ -230,6 +232,18 @@ export const KnowledgeCenter: React.FC = () => {
 
       if (res.ok) {
         const data = await res.json();
+        if (data.isMiningDomainRelevant === false) {
+          const rejectionMsg = data.domainRejectionReason || 
+            `Document subject ("${data.title || fileName}") is not recognized as CIL / CMPDI Mining, Geology, DGMS Safety, or Colliery operational data.`;
+          setDomainValidationError(rejectionMsg);
+          setUploadReason('');
+          setAiSummaryProvider(null);
+          setToastMessage({ text: 'Domain Warning: Uploaded file is non-mining subject matter.', type: 'warning' });
+          return;
+        }
+
+        // Domain is valid and verified by AI
+        setDomainValidationError(null);
         if (data.summary) {
           setUploadReason(data.summary);
           setAiSummaryProvider(data.provider || 'gemini');
@@ -248,7 +262,17 @@ export const KnowledgeCenter: React.FC = () => {
       setIsAnalyzingAiSummary(false);
     }
 
-    // Fallback if network/server is unavailable
+    // Static fallback check if AI service was unreachable
+    const staticCheck = evaluateContentRelevance(targetTitle || fileName, detectedType, rawText, fileName, '');
+    if (!staticCheck.isRelevant) {
+      setDomainValidationError(staticCheck.mismatchReason || 'Document does not contain recognized mining taxonomy.');
+      setUploadReason('');
+      setAiSummaryProvider(null);
+      return;
+    }
+
+    // Fallback if network/server is unavailable but static check passed
+    setDomainValidationError(null);
     const fallback = generateFileSpecificSummary(
       fileName,
       fileSize,
@@ -298,6 +322,7 @@ export const KnowledgeCenter: React.FC = () => {
     setOcrStep(0);
     setIsProcessingOcr(false);
     setDuplicateWarning(null);
+    setDomainValidationError(null);
     setIsUploadModalOpen(true);
   };
 
@@ -414,16 +439,11 @@ export const KnowledgeCenter: React.FC = () => {
       }
     }
 
-    if (!extractedText || extractedText.length < 20) {
-      extractedText = `Technical record ingestion from uploaded external file "${file.name}" (${formattedSize}).\n` +
-        `Document Category: ${detectedType.replace('_', ' ').toUpperCase()} | Target Division: ${uploadSubsidiary}\n` +
-        `File Classification: Verified external file uploaded by ${currentUser.name} (${currentUser.employeeId}).\n` +
-        `Lithological, equipment, safety compliance, and operational parameters parsed into MineMind AI source vector catalog.`;
-    }
-
+    // Do NOT inject synthetic mining words if the uploaded document is not mining-related!
     setUploadTextContent(extractedText.slice(0, 12000));
+    setDomainValidationError(null);
 
-    // Call server AI summarizer to generate precise content matching the uploaded document
+    // Call server AI summarizer to intelligently evaluate and summarize the uploaded document
     await analyzeAndSummarizeDoc(
       file.name,
       formattedSize,
@@ -776,9 +796,10 @@ export const KnowledgeCenter: React.FC = () => {
           <button
             id="btn-open-upload-modal"
             onClick={() => handleOpenUpload(false)}
-            className="px-3.5 py-2 bg-[#141C2B] hover:bg-[#1E293B] text-white text-xs font-semibold rounded-lg transition-all flex items-center gap-2 shadow-xs cursor-pointer"
+            className="px-4 py-2 bg-[#C8892E] hover:bg-[#B77A23] active:scale-[0.98] text-[#141C2B] text-xs font-bold rounded-lg transition-all flex items-center gap-2 shadow-sm border border-[#B77A23] cursor-pointer hover:shadow-md"
+            title="Upload and ingest a new technical document, borehole log, or safety circular"
           >
-            <Upload className="w-3.5 h-3.5 text-[#C8892E]" />
+            <Upload className="w-3.5 h-3.5 text-[#141C2B]" />
             <span>Upload Document</span>
           </button>
         </div>
@@ -1552,52 +1573,39 @@ export const KnowledgeCenter: React.FC = () => {
                   </div>
                 )}
 
-                {/* Quick Preset Mining Files for Instant Testing */}
-                <div className="mt-2.5 pt-2 border-t border-[#E4E0D6]/60">
-                  <span className="text-[10px] font-mono text-[#64748B] uppercase font-bold block mb-1.5">
-                    Or select pre-formatted test mining dataset:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
+                {/* Domain Relevance Validation Alert */}
+                {domainValidationError ? (
+                  <div className="mt-2.5 p-3 rounded-lg border text-xs font-mono flex items-start justify-between gap-3 bg-[#FEF2F2] border-[#FECACA] text-[#991B1B]">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-[#DC2626] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-bold text-xs text-[#991B1B]">Domain Restriction Notice</div>
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-[#B91C1C]">{domainValidationError}</p>
+                        <p className="mt-1 text-[10px] text-[#7F1D1D] font-sans font-semibold">
+                          Expected Domain: CMPDI Geological Exploration, Borehole Lithology Logs, DGMS Colliery Safety SOPs, HEMM Telemetry, or Coal Production.
+                        </p>
+                      </div>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => handleSampleFilePreset(
-                        'CMPDI_Talcher_Borehole_Lithology_2026.csv',
-                        'geological_report',
-                        'Borehole_ID,Depth_m,Lithology,Seam_Name,Thickness_m,Ash_Pct,Moisture_Pct,G_Grade\nBH-TL-101,45.2,Sandstone,-,-,-,-\nBH-TL-101,68.4,Carbonaceous Shale,-,-,-,-\nBH-TL-101,88.2,Coal,Seam-VIII,9.4,31.2,5.8,G7\nBH-TL-102,94.5,Coal,Seam-VIII,9.8,29.8,6.1,G6\nBH-TL-103,112.0,Coal,Seam-IX,4.2,34.0,5.2,G8\nSummary: 14 new core boreholes confirm 56.2 MT proved reserves in Talcher block with low overburden stripping ratio 2.4 m3/t.'
-                      )}
-                      className="px-2 py-1 bg-white hover:bg-[#FAF8F3] border border-[#E4E0D6] rounded text-[10px] font-mono text-[#141C2B] transition-colors cursor-pointer flex items-center gap-1"
+                      onClick={() => {
+                        setDomainValidationError(null);
+                        setUploadReason((prev) => prev || `Verified technical study / colliery experimental dataset for ${uploadSubsidiary}.`);
+                        setToastMessage({ text: 'Domain check acknowledged: Proceeding with technical document ingestion.', type: 'info' });
+                      }}
+                      className="px-2.5 py-1.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-[10px] font-sans font-bold rounded shadow-xs flex-shrink-0 cursor-pointer"
                     >
-                      <FileSpreadsheet className="w-3 h-3 text-[#16A34A]" />
-                      <span>Borehole_Lithology_2026.csv</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSampleFilePreset(
-                        'DGMS_Methane_Monitoring_SOP_Rev4.pdf',
-                        'safety_sop',
-                        'STANDARD OPERATING PROCEDURE: UNDERGROUND METHANE (CH4) MONITORING\n1. Continuous multi-gas detection sensors must be calibrated every 7 days.\n2. In Degree III gassy seams, automatic electric cutoff trips if CH4 exceeds 0.75% in return airway.\n3. Evacuation threshold set at 1.25% CH4 pursuant to Coal Mines Regulations 2017.\n4. Weekly airflow measurement required at every split ventilation section.'
-                      )}
-                      className="px-2 py-1 bg-white hover:bg-[#FAF8F3] border border-[#E4E0D6] rounded text-[10px] font-mono text-[#141C2B] transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <FileText className="w-3 h-3 text-[#C8892E]" />
-                      <span>DGMS_Methane_SOP_Rev4.pdf</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSampleFilePreset(
-                        'SECL_Kusmunda_HEMM_Deployment_Q1_2026.xlsx',
-                        'production_sheet',
-                        'HEMM_ID,Equipment_Type,Shift_A_Tonnes,Shift_B_Tonnes,Shift_C_Tonnes,Daily_Total,Availability_Pct\nEX-42,Electric Shovel 42m3,14200,15100,13800,43100,94.2%\nDT-108,Dumper 240T,4200,4450,4100,12750,91.8%\nDT-109,Dumper 240T,4100,4300,3950,12350,90.5%\nAggregate Quarter Target: 4.85 MT coal dispatch on track.'
-                      )}
-                      className="px-2 py-1 bg-white hover:bg-[#FAF8F3] border border-[#E4E0D6] rounded text-[10px] font-mono text-[#141C2B] transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <FileSpreadsheet className="w-3 h-3 text-[#2563EB]" />
-                      <span>HEMM_Deployment_Q1.xlsx</span>
+                      Authorize as Mining Study
                     </button>
                   </div>
-                </div>
+                ) : uploadFileName ? (
+                  <div className="mt-2.5 p-3 rounded-lg border text-xs font-mono flex items-start gap-2 bg-[#F0FDF4] border-[#BBF7D0] text-[#166534]">
+                    <CheckCircle2 className="w-4 h-4 text-[#16A34A] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">System Domain Validated:</span> Technical record verified against CIL/CMPDI Mining & Geological taxonomy.
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {/* 2. Title & Document Code */}
@@ -1791,9 +1799,9 @@ export const KnowledgeCenter: React.FC = () => {
 
               <button
                 type="button"
-                disabled={!uploadFileName || !uploadReason || isProcessingOcr}
+                disabled={!uploadFileName || !uploadReason || isProcessingOcr || Boolean(domainValidationError)}
                 onClick={startOcrPipeline}
-                className="px-5 py-2.5 bg-[#141C2B] hover:bg-[#1E293B] disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-2"
+                className="px-5 py-2.5 bg-[#141C2B] hover:bg-[#1E293B] disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
               >
                 <span>{isUpdateFlow ? 'Submit Revision to Approval Queue' : 'Ingest Document'}</span>
                 <ArrowRight className="w-3.5 h-3.5 text-[#C8892E]" />

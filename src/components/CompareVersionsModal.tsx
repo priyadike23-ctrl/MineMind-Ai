@@ -46,8 +46,11 @@ import {
   MoveHorizontal,
   Camera,
   Scan,
-  Plus
+  Plus,
+  Share2,
+  FolderOpen
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { Document, DocumentVersion } from '../types';
 import { 
   evaluateDocumentCompliance, 
@@ -56,6 +59,311 @@ import {
   BenchmarkMatchResult
 } from '../utils/complianceEngine';
 import { getGeologicalStrataPngBase64, openImageInNewTab } from '../utils/imageViewerUtils';
+
+export interface ParsedSection {
+  heading: string;
+  items: {
+    type: 'para' | 'bullet' | 'subhead' | 'directive' | 'table' | 'callout';
+    text: string;
+    rows?: string[][];
+  }[];
+}
+
+export interface ParsedStatutoryDocumentModel {
+  title: string;
+  code: string;
+  subsidiary: string;
+  period: string;
+  date: string;
+  author: string;
+  sections: ParsedSection[];
+}
+
+export function parseStatutoryText(
+  rawText: string,
+  fallback: { title: string; code: string; subsidiary: string; date?: string; author?: string }
+): ParsedStatutoryDocumentModel {
+  let text = (rawText || '').trim();
+
+  // Extract metadata if present in stream
+  let extractedCode = fallback.code;
+  let extractedSub = fallback.subsidiary;
+  let extractedPeriod = 'FY 2025-26 (Q3/Q4)';
+  let extractedDate = fallback.date || new Date().toLocaleDateString();
+  let extractedAuthor = fallback.author || 'Vedant Dike (admin)';
+  let extractedTitle = fallback.title;
+
+  const codeMatch = text.match(/Code:\s*([A-Z0-9\-_/]+)/i) || text.match(/\b(REP-\d+-[A-Z]+-\d+|CMPDI\/[A-Z0-9\-_/]+)\b/i);
+  if (codeMatch) extractedCode = codeMatch[1] || codeMatch[0];
+
+  const subMatch = text.match(/Subsidiary:\s*([A-Z\s]+?)(?=\s+(?:Period|Date|Author|Code)|\s*$|\n)/i);
+  if (subMatch && subMatch[1].trim().length < 25) extractedSub = subMatch[1].trim();
+
+  const periodMatch = text.match(/Period:\s*([^Date\n|]+?)(?=\s+Date|\s*$|\n)/i);
+  if (periodMatch) extractedPeriod = periodMatch[1].trim();
+
+  const dateMatch = text.match(/Date:\s*([^|Author\n]+?)(?=\s*\|\s*Author|\s*$|\n)/i);
+  if (dateMatch) extractedDate = dateMatch[1].trim();
+
+  const authorMatch = text.match(/Author:\s*([^\d\n]+?)(?=\s*\d+\.|\s*$|\n|1\.)/i);
+  if (authorMatch && authorMatch[1].trim().length < 40) extractedAuthor = authorMatch[1].trim();
+
+  const titleMatch = text.match(/(Monthly Subsidiary Production Variance Brief\s*—\s*[A-Z]+|[\w\s-]+\bReport\b|[\w\s-]+\bBrief\b)/i);
+  if (titleMatch && titleMatch[1].length > 12 && titleMatch[1].length < 80) extractedTitle = titleMatch[1].trim();
+
+  // Clean noise boilerplate
+  text = text
+    .replace(/---\s*Page\s*\d+\s*---/gi, '')
+    .replace(/--\s*Page\s*\d+\s*--/gi, '')
+    .replace(/Page\s+\d+\s+CONFIDENTIAL\s*—\s*STATUTORY\s*MINING\s*GOVERNANCE/gi, '')
+    .replace(/CENTRAL\s+MINE\s+PLANNING\s*&\s*DESIGN\s+INSTITUTE\s*\(CMPDI\)\s*—\s*STATUTORY\s*BRIEF/gi, '')
+    .replace(/REP-\d+-[A-Z]+-\d+/gi, '')
+    .replace(/Monthly\s+Subsidiary\s+Production\s+Variance\s+Brief\s*—\s*[A-Z]+/gi, '')
+    .replace(/Code:\s*[^\s]+(\s+Subsidiary:\s*[^\s]+)?(\s+Period:\s*[^Date]+)?(\s+Date:\s*[^|]+)?(\s*\|\s*Author:\s*[^1-9\n]+)?/gi, '')
+    .replace(/CONFIDENTIAL\s*—\s*STATUTORY\s*MINING\s*GOVERNANCE/gi, '')
+    .trim();
+
+  // Pre-split known major headings & structured parts
+  text = text
+    .replace(/(\s+|^)(?=\d+\.\s+[A-Z][a-zA-Z\s&/—–-]{3,60}(?::|$|\s+[A-Z]|\s+This|\s+Synthesized|\s+Respective|\s+Operational|\s+Detailed))/g, '\n\n[[SEC_HEAD]]')
+    .replace(/(\s+|^)(?=(?:Detailed Observations & Geological\/Operational Parameters:|Detailed Observations:|Geological Parameters:|Operational Parameters:))/g, '\n\n[[SUB_HEAD]]')
+    .replace(/(\s+|^)(?=(?:Point\s+\d+\.\d+\s+\[.*?\]|Point\s+\d+\.\d+:))/g, '\n\n[[POINT_ITEM]]')
+    .replace(/(\s+|^)(?=(?:-\s+[A-Z]|•\s+[A-Z]))/g, '\n[[BULLET_ITEM]]')
+    .replace(/(\s+|^)(?=(?:\d+\.\s+[A-Z][a-zA-Z\s]+:))/g, '\n\n[[DIRECTIVE_ITEM]]');
+
+  const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  const sections: ParsedSection[] = [];
+  let currentSection: ParsedSection = {
+    heading: '1. Statutory Context & Executive Directive',
+    items: []
+  };
+
+  for (const rawLine of rawLines) {
+    if (rawLine.startsWith('[[SEC_HEAD]]')) {
+      const headingText = rawLine.replace('[[SEC_HEAD]]', '').trim();
+      if (currentSection.items.length > 0) {
+        sections.push(currentSection);
+      }
+      currentSection = {
+        heading: headingText,
+        items: []
+      };
+      continue;
+    }
+
+    if (rawLine.startsWith('[[SUB_HEAD]]')) {
+      const subhead = rawLine.replace('[[SUB_HEAD]]', '').trim();
+      currentSection.items.push({ type: 'subhead', text: subhead });
+      continue;
+    }
+
+    if (rawLine.startsWith('[[POINT_ITEM]]')) {
+      const point = rawLine.replace('[[POINT_ITEM]]', '').trim();
+      currentSection.items.push({ type: 'subhead', text: point });
+      continue;
+    }
+
+    if (rawLine.startsWith('[[BULLET_ITEM]]')) {
+      const bullet = rawLine.replace('[[BULLET_ITEM]]', '').replace(/^[•\-]\s*/, '').trim();
+      currentSection.items.push({ type: 'bullet', text: bullet });
+      continue;
+    }
+
+    if (rawLine.startsWith('[[DIRECTIVE_ITEM]]')) {
+      const directive = rawLine.replace('[[DIRECTIVE_ITEM]]', '').trim();
+      currentSection.items.push({ type: 'directive', text: directive });
+      continue;
+    }
+
+    if (rawLine.includes('|') && rawLine.split('|').filter(Boolean).length >= 2) {
+      const cells = rawLine.split('|').map(c => c.trim()).filter(Boolean);
+      const last = currentSection.items[currentSection.items.length - 1];
+      if (last && last.type === 'table' && last.rows) {
+        last.rows.push(cells);
+      } else {
+        currentSection.items.push({ type: 'table', text: '', rows: [cells] });
+      }
+      continue;
+    }
+
+    if (/^(NOTE|CRITICAL|WARNING|DIRECTIVE|MANDATORY):/i.test(rawLine)) {
+      currentSection.items.push({ type: 'callout', text: rawLine });
+      continue;
+    }
+
+    if (rawLine.length > 0) {
+      currentSection.items.push({ type: 'para', text: rawLine });
+    }
+  }
+
+  if (currentSection.items.length > 0) {
+    sections.push(currentSection);
+  }
+
+  return {
+    title: extractedTitle,
+    code: extractedCode,
+    subsidiary: extractedSub,
+    period: extractedPeriod,
+    date: extractedDate,
+    author: extractedAuthor,
+    sections: sections.length > 0 ? sections : [
+      {
+        heading: '1. Statutory Filing Content',
+        items: [{ type: 'para', text: text || 'Statutory filing details registered under Coal India CMPDI.' }]
+      }
+    ]
+  };
+}
+
+export const buildStatutoryJsPdf = (doc: Document, v2: DocumentVersion): jsPDF => {
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 16;
+  const maxLineWidth = pageWidth - margin * 2;
+  let yPos = 20;
+
+  const checkPageBreak = (neededHeight: number) => {
+    if (yPos + neededHeight > pageHeight - 18) {
+      pdf.addPage();
+      yPos = 20;
+      drawHeaderFooter();
+    }
+  };
+
+  const drawHeaderFooter = () => {
+    // Top header accent line
+    pdf.setDrawColor(200, 137, 46); // #C8892E
+    pdf.setLineWidth(1.2);
+    pdf.line(margin, 10, pageWidth - margin, 10);
+
+    // Top header text
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 116, 139);
+    pdf.text('CENTRAL MINE PLANNING & DESIGN INSTITUTE (CMPDI) — STATUTORY BRIEF', margin, 8);
+    pdf.text(doc.documentCode, pageWidth - margin, 8, { align: 'right' });
+
+    // Bottom page footer
+    const pageCount = pdf.getNumberOfPages();
+    pdf.setFontSize(8);
+    pdf.setTextColor(148, 163, 184);
+    pdf.text(`Page ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    pdf.text('CONFIDENTIAL — STATUTORY MINING GOVERNANCE', margin, pageHeight - 10);
+  };
+
+  drawHeaderFooter();
+
+  const parsed = parseStatutoryText(v2.extractedText || '', {
+    title: doc.title,
+    code: doc.documentCode,
+    subsidiary: doc.subsidiary,
+    date: v2.uploadedAt ? new Date(v2.uploadedAt).toLocaleDateString() : new Date().toLocaleDateString(),
+    author: `${v2.uploadedBy.name} (${v2.uploadedBy.employeeId})`
+  });
+
+  // Title
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(15);
+  pdf.setTextColor(20, 28, 43);
+  const splitTitle = pdf.splitTextToSize(parsed.title || doc.title, maxLineWidth);
+  pdf.text(splitTitle, margin, yPos);
+  yPos += splitTitle.length * 6.5 + 4;
+
+  // Metadata Card
+  pdf.setFillColor(248, 250, 252);
+  pdf.setDrawColor(226, 232, 240);
+  pdf.setLineWidth(0.3);
+  pdf.roundedRect(margin, yPos, maxLineWidth, 14, 2, 2, 'FD');
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(15, 23, 42);
+  pdf.text(`Code: ${parsed.code}`, margin + 4, yPos + 5.5);
+  pdf.text(`Subsidiary: ${parsed.subsidiary}`, margin + 60, yPos + 5.5);
+  pdf.text(`Period: ${parsed.period}`, margin + 115, yPos + 5.5);
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  pdf.setTextColor(100, 116, 139);
+  pdf.text(`Date: ${parsed.date} | Author: ${parsed.author}`, margin + 4, yPos + 10.5);
+  yPos += 20;
+
+  // Content Sections
+  for (const sec of parsed.sections) {
+    checkPageBreak(18);
+    yPos += 3;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(15, 23, 42);
+    pdf.text(sec.heading, margin, yPos);
+    yPos += 4.5;
+
+    // Amber underline under section heading
+    pdf.setDrawColor(200, 137, 46);
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, yPos, margin + 35, yPos);
+    yPos += 3.5;
+
+    for (const item of sec.items) {
+      if (item.type === 'para') {
+        checkPageBreak(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        pdf.setTextColor(51, 65, 85);
+        const splitP = pdf.splitTextToSize(item.text, maxLineWidth);
+        pdf.text(splitP, margin, yPos);
+        yPos += splitP.length * 4.2 + 2.5;
+      } else if (item.type === 'subhead') {
+        checkPageBreak(12);
+        yPos += 2;
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9.5);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(item.text, margin, yPos);
+        yPos += 4.5;
+      } else if (item.type === 'bullet') {
+        checkPageBreak(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(51, 65, 85);
+        const splitB = pdf.splitTextToSize(`• ${item.text}`, maxLineWidth - 4);
+        pdf.text(splitB, margin + 2, yPos);
+        yPos += splitB.length * 4 + 2;
+      } else if (item.type === 'directive') {
+        checkPageBreak(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(15, 23, 42);
+        const splitD = pdf.splitTextToSize(item.text, maxLineWidth - 2);
+        pdf.text(splitD, margin, yPos);
+        yPos += splitD.length * 4 + 2.5;
+      } else if (item.type === 'callout') {
+        checkPageBreak(12);
+        pdf.setFillColor(254, 242, 242);
+        pdf.setDrawColor(220, 38, 38);
+        pdf.setLineWidth(0.3);
+        const splitC = pdf.splitTextToSize(item.text, maxLineWidth - 6);
+        const boxH = splitC.length * 4 + 4;
+        pdf.rect(margin, yPos, maxLineWidth, boxH, 'FD');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(8);
+        pdf.setTextColor(153, 27, 27);
+        pdf.text(splitC, margin + 3, yPos + 3.5);
+        yPos += boxH + 2;
+      }
+    }
+  }
+
+  return pdf;
+};
 
 export const getSampleGeologicalSurveySvgDataUrl = (title: string, subsidiary: string, docCode: string): string => {
   return getGeologicalStrataPngBase64(title, subsidiary, docCode);
@@ -87,6 +395,76 @@ export const CompareVersionsModal: React.FC = () => {
   const [actionReason, setActionReason] = useState<string>('');
   const [spreadsheetSearch, setSpreadsheetSearch] = useState<string>('');
   const [sheetViewMode, setSheetViewMode] = useState<'grid' | 'raw'>('grid');
+  
+  // PDF Viewer Interactive States
+  const [pdfZoom, setPdfZoom] = useState<number>(100);
+  const [pdfViewMode, setPdfViewMode] = useState<'formatted' | 'native_pdf' | 'raw'>('formatted');
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [googleDriveModalOpen, setGoogleDriveModalOpen] = useState<boolean>(false);
+  const [pdfToast, setPdfToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!compareVersions?.v2 || !compareVersions?.doc) {
+      setPdfBlobUrl(null);
+      return;
+    }
+    try {
+      const pdf = buildStatutoryJsPdf(compareVersions.doc, compareVersions.v2);
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      setPdfBlobUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } catch (err) {
+      console.error('Failed to build PDF blob', err);
+    }
+  }, [compareVersions?.doc?.id, compareVersions?.v2?.id, compareVersions?.v2?.extractedText]);
+
+  const handleOpenPdfInNewTab = () => {
+    if (!compareVersions) return;
+    const { doc, v2 } = compareVersions;
+    try {
+      const pdf = buildStatutoryJsPdf(doc, v2);
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setPdfToast('Official statutory PDF document opened in new tab.');
+      setTimeout(() => setPdfToast(null), 3500);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (!compareVersions) return;
+    const { doc, v2 } = compareVersions;
+    try {
+      const pdf = buildStatutoryJsPdf(doc, v2);
+      pdf.save(`${doc.documentCode}_v${v2.versionNumber}.0_${doc.subsidiary}.pdf`);
+      setPdfToast('Downloaded official statutory PDF document.');
+      setTimeout(() => setPdfToast(null), 3500);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handlePrintPdf = () => {
+    if (!compareVersions) return;
+    const { doc, v2 } = compareVersions;
+    try {
+      const pdf = buildStatutoryJsPdf(doc, v2);
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (win) {
+        win.focus();
+        setTimeout(() => win.print(), 500);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
   
   // Image Viewer Interactive States
   const [imageZoom, setImageZoom] = useState<number>(1);
@@ -747,12 +1125,18 @@ export const CompareVersionsModal: React.FC = () => {
           {/* TAB 2: DOCUMENT & IMAGE VIEWER FORMATTED STRICTLY */}
           {activeTab === 'pdf_view' && (() => {
             const fnLower = (v2.fileName || '').toLowerCase();
+            const isPdf = Boolean(
+              fnLower.endsWith('.pdf') || 
+              (!fnLower.endsWith('.csv') && !fnLower.endsWith('.xlsx') && !fnLower.endsWith('.xls') && !fnLower.endsWith('.tsv') && !fnLower.endsWith('.jpg') && !fnLower.endsWith('.jpeg') && !fnLower.endsWith('.png') && !fnLower.endsWith('.webp'))
+            );
+
             const isSpreadsheet = Boolean(
-              fnLower.endsWith('.csv') || 
-              fnLower.endsWith('.xlsx') || 
-              fnLower.endsWith('.xls') || 
-              fnLower.endsWith('.tsv') ||
-              (doc.type === 'production_sheet' && v2.extractedText?.includes(','))
+              !isPdf && (
+                fnLower.endsWith('.csv') || 
+                fnLower.endsWith('.xlsx') || 
+                fnLower.endsWith('.xls') || 
+                fnLower.endsWith('.tsv')
+              )
             );
 
             const isImage = Boolean(
@@ -825,13 +1209,24 @@ export const CompareVersionsModal: React.FC = () => {
               URL.revokeObjectURL(url);
             };
 
+            const handleDownloadPdfText = () => {
+              if (!v2.extractedText) return;
+              const blob = new Blob([v2.extractedText], { type: 'text/plain;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = window.document.createElement('a');
+              a.href = url;
+              a.download = v2.fileName ? v2.fileName.replace(/\.pdf$/i, '.txt') : `${doc.title}.txt`;
+              a.click();
+              URL.revokeObjectURL(url);
+            };
+
             return (
               <div className="space-y-4">
-                <div className="bg-white p-4 sm:p-5 rounded-xl border border-[#E4E0D6] shadow-xs space-y-4">
+                <div className="bg-white p-3 sm:p-5 rounded-xl border border-[#E4E0D6] shadow-xs space-y-4">
                   {/* File Reader Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#EFEBE2]">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`p-2 rounded-lg ${
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`p-2 rounded-lg flex-shrink-0 ${
                         isImage 
                           ? 'bg-[#EFF6FF] text-[#2563EB]' 
                           : isSpreadsheet 
@@ -843,30 +1238,30 @@ export const CompareVersionsModal: React.FC = () => {
                         ) : isSpreadsheet ? (
                           <FileSpreadsheet className="w-5 h-5" />
                         ) : (
-                          <FileText className="w-5 h-5" />
+                          <FileText className="w-5 h-5 text-[#DC2626]" />
                         )}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-[#141C2B]">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-xs sm:text-sm text-[#141C2B] truncate max-w-[240px] sm:max-w-md">
                             {v2.fileName || `${doc.title}.${isImage ? 'jpg' : isSpreadsheet ? 'csv' : 'pdf'}`}
                           </span>
-                          <span className="text-[10px] font-mono font-bold bg-[#FAF8F3] px-2 py-0.5 rounded border border-[#E4E0D6] text-[#64748B]">
-                            {isImage ? 'Geological Photo Record' : isSpreadsheet ? 'Tabular Dataset' : 'Statutory PDF'}
+                          <span className="text-[10px] font-mono font-bold bg-[#FAF8F3] px-2 py-0.5 rounded border border-[#E4E0D6] text-[#64748B] flex-shrink-0">
+                            {isImage ? 'Geological Photo' : isSpreadsheet ? 'Tabular Dataset' : 'Statutory PDF'}
                           </span>
                         </div>
-                        <div className="text-xs font-mono text-[#64748B] mt-0.5">
+                        <div className="text-[11px] font-mono text-[#64748B] mt-0.5 truncate">
                           {v2.fileSize || (isImage ? '3.4 MB' : isSpreadsheet ? '1.4 MB' : '2.8 MB')} · {doc.subsidiary} Directorate · Version v{v2.versionNumber}.0
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                    <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end flex-wrap">
                       {isImage ? (
                         <>
-                          <div className="flex items-center gap-1.5 text-xs font-mono text-[#64748B] bg-[#FAF8F3] px-3 py-1.5 rounded-lg border border-[#EFEBE2]">
+                          <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-[#64748B] bg-[#FAF8F3] px-3 py-1.5 rounded-lg border border-[#EFEBE2]">
                             <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A]" />
-                            <span>OCR Character Precision: {v2.ocrConfidence || 99.4}%</span>
+                            <span>OCR: {v2.ocrConfidence || 99.4}%</span>
                           </div>
                           <button
                             onClick={() => openImageInNewTab(effectiveV2Image, `${doc.title} - ${v2.fileName || 'Strata Survey'}`)}
@@ -874,7 +1269,7 @@ export const CompareVersionsModal: React.FC = () => {
                             title="Open image in dedicated high-res new tab"
                           >
                             <ExternalLink className="w-3.5 h-3.5 text-[#0284C7]" />
-                            <span>Open in New Tab</span>
+                            <span className="hidden sm:inline">Open Tab</span>
                           </button>
                           <button
                             onClick={() => handleDownloadImage(effectiveV2Image, v2.fileName)}
@@ -882,35 +1277,68 @@ export const CompareVersionsModal: React.FC = () => {
                             title="Export / Download Image"
                           >
                             <Download className="w-3.5 h-3.5 text-[#2563EB]" />
-                            <span className="hidden sm:inline">Export Image</span>
+                            <span>Export</span>
                           </button>
                         </>
                       ) : isSpreadsheet ? (
                         <>
-                          <div className="relative">
+                          <div className="relative flex-1 sm:flex-none">
                             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#64748B]" />
                             <input
                               type="text"
                               placeholder="Search cells..."
                               value={spreadsheetSearch}
                               onChange={(e) => setSpreadsheetSearch(e.target.value)}
-                              className="pl-8 pr-3 py-1 text-xs border border-[#E4E0D6] rounded-lg bg-[#FAF8F3] focus:bg-white focus:outline-none focus:border-[#C8892E] w-32 sm:w-44 font-mono"
+                              className="pl-8 pr-3 py-1 text-xs border border-[#E4E0D6] rounded-lg bg-[#FAF8F3] focus:bg-white focus:outline-none focus:border-[#C8892E] w-full sm:w-44 font-mono"
                             />
                           </div>
                           <button
                             onClick={handleDownloadCsv}
-                            className="px-2.5 py-1 text-xs font-mono font-bold bg-[#FAF8F3] hover:bg-[#141C2B] hover:text-white border border-[#E4E0D6] text-[#141C2B] rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                            className="px-2.5 py-1 text-xs font-mono font-bold bg-[#FAF8F3] hover:bg-[#141C2B] hover:text-white border border-[#E4E0D6] text-[#141C2B] rounded-lg flex items-center gap-1 cursor-pointer transition-colors flex-shrink-0"
                             title="Download CSV"
                           >
                             <Download className="w-3.5 h-3.5 text-[#16A34A]" />
-                            <span className="hidden sm:inline">Export</span>
+                            <span>Export</span>
                           </button>
                         </>
                       ) : (
-                        <div className="flex items-center gap-1.5 text-xs font-mono text-[#64748B] bg-[#FAF8F3] px-3 py-1.5 rounded-lg border border-[#EFEBE2]">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A]" />
-                          <span>OCR Character Precision: {v2.ocrConfidence || 99.4}%</span>
-                        </div>
+                        <>
+                          {/* Zoom & View Controls for PDF */}
+                          <div className="flex items-center gap-1 bg-[#FAF8F3] border border-[#E4E0D6] rounded-lg p-0.5 text-xs font-mono">
+                            <button
+                              onClick={() => setPdfZoom(Math.max(70, pdfZoom - 10))}
+                              className="px-2 py-1 hover:bg-[#EFEBE2] rounded text-[#141C2B] font-bold cursor-pointer transition-colors"
+                              title="Zoom out"
+                            >
+                              -
+                            </button>
+                            <span className="px-1 text-[11px] text-[#64748B] min-w-[36px] text-center font-bold">
+                              {pdfZoom}%
+                            </span>
+                            <button
+                              onClick={() => setPdfZoom(Math.min(150, pdfZoom + 10))}
+                              className="px-2 py-1 hover:bg-[#EFEBE2] rounded text-[#141C2B] font-bold cursor-pointer transition-colors"
+                              title="Zoom in"
+                            >
+                              +
+                            </button>
+                            <button
+                              onClick={() => setPdfZoom(100)}
+                              className="px-1.5 py-1 text-[10px] text-[#64748B] hover:text-[#141C2B] hover:bg-[#EFEBE2] rounded cursor-pointer transition-colors"
+                              title="Reset zoom"
+                            >
+                              Reset
+                            </button>
+                          </div>
+                          <button
+                            onClick={handleDownloadPdfText}
+                            className="px-2.5 py-1 text-xs font-mono font-bold bg-[#FAF8F3] hover:bg-[#141C2B] hover:text-white border border-[#E4E0D6] text-[#141C2B] rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                            title="Export PDF Text"
+                          >
+                            <Download className="w-3.5 h-3.5 text-[#DC2626]" />
+                            <span className="hidden sm:inline">Export Text</span>
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1163,53 +1591,359 @@ export const CompareVersionsModal: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    /* 3. PDF DOCUMENT WORKSPACE: Formatted Multi-Section Report */
-                    <div className="border border-[#CBD5E1] rounded-xl overflow-hidden shadow-xs bg-[#525659]">
-                      <div className="bg-[#323639] text-[#E8EAED] px-4 py-2 flex items-center justify-between text-xs font-mono">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-[#C8892E]" />
-                          <span className="font-bold">PDF Reader — {v2.fileName || `${doc.title}.pdf`}</span>
+                    /* 3. PDF DOCUMENT WORKSPACE: Authentic High-Fidelity Statutory Document Reader & Real PDF Engine */
+                    <div className="border border-[#334155] rounded-xl overflow-hidden shadow-xl bg-[#1E293B]">
+                      {/* PDF Control & Navigation Bar */}
+                      <div className="bg-[#0F172A] text-[#F1F5F9] px-3 sm:px-4 py-2.5 flex items-center justify-between text-xs font-mono flex-wrap gap-2 border-b border-[#334155]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="p-1 rounded bg-[#DC2626]/20 text-[#EF4444] border border-[#DC2626]/30">
+                            <FileText className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="font-semibold truncate text-[11px] sm:text-xs text-[#E2E8F0] max-w-[170px] sm:max-w-xs">
+                            {v2.fileName || `${doc.title}.pdf`}
+                          </span>
+                          <span className="hidden md:inline-block px-2 py-0.5 rounded text-[10px] bg-[#1E293B] text-[#94A3B8] border border-[#334155]">
+                            {doc.subsidiary}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 bg-[#4A4D50] rounded text-[11px]">Fit to Width</span>
-                          <span className="px-2 py-0.5 bg-[#4A4D50] rounded text-[11px]">100%</span>
+
+                        {/* View Switchers */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="flex items-center bg-[#1E293B] p-0.5 rounded-lg border border-[#334155]">
+                            <button
+                              onClick={() => setPdfViewMode('formatted')}
+                              className={`px-2.5 py-1 rounded text-[10px] sm:text-[11px] font-semibold cursor-pointer transition-colors ${
+                                pdfViewMode === 'formatted'
+                                  ? 'bg-[#C8892E] text-white shadow-xs'
+                                  : 'text-[#94A3B8] hover:text-white'
+                              }`}
+                              title="Render high-fidelity statutory formatted document"
+                            >
+                              Document View
+                            </button>
+                            <button
+                              onClick={() => setPdfViewMode('native_pdf')}
+                              className={`px-2.5 py-1 rounded text-[10px] sm:text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1 ${
+                                pdfViewMode === 'native_pdf'
+                                  ? 'bg-[#2563EB] text-white shadow-xs'
+                                  : 'text-[#94A3B8] hover:text-white'
+                              }`}
+                              title="Embed native PDF engine with zoom and pages"
+                            >
+                              <FileCheck2 className="w-3 h-3" />
+                              <span>Native PDF</span>
+                            </button>
+                            <button
+                              onClick={() => setPdfViewMode('raw')}
+                              className={`px-2.5 py-1 rounded text-[10px] sm:text-[11px] font-semibold cursor-pointer transition-colors ${
+                                pdfViewMode === 'raw'
+                                  ? 'bg-[#475569] text-white shadow-xs'
+                                  : 'text-[#94A3B8] hover:text-white'
+                              }`}
+                              title="View raw extracted OCR text"
+                            >
+                              OCR Text
+                            </button>
+                          </div>
+
+                          {/* Action Tools */}
+                          <div className="flex items-center gap-1 pl-1 border-l border-[#334155]">
+                            <button
+                              onClick={handleOpenPdfInNewTab}
+                              className="px-2.5 py-1 bg-[#1E293B] hover:bg-[#334155] text-[#E2E8F0] hover:text-white rounded text-[10px] sm:text-[11px] font-mono cursor-pointer transition-colors border border-[#334155] flex items-center gap-1"
+                              title="Open PDF in a new Chrome browser tab"
+                            >
+                              <ExternalLink className="w-3 h-3 text-[#38BDF8]" />
+                              <span className="hidden sm:inline">Open in Tab</span>
+                            </button>
+
+                            <button
+                              onClick={() => setGoogleDriveModalOpen(true)}
+                              className="px-2.5 py-1 bg-[#1E293B] hover:bg-[#334155] text-[#E2E8F0] hover:text-white rounded text-[10px] sm:text-[11px] font-mono cursor-pointer transition-colors border border-[#334155] flex items-center gap-1"
+                              title="Open / Export to Google Drive & Google Docs"
+                            >
+                              <FolderOpen className="w-3 h-3 text-[#FBBF24]" />
+                              <span className="hidden sm:inline">Google Drive</span>
+                            </button>
+
+                            <button
+                              onClick={handleDownloadPdf}
+                              className="p-1 sm:px-2 sm:py-1 bg-[#1E293B] hover:bg-[#334155] text-[#E2E8F0] hover:text-white rounded text-[10px] sm:text-[11px] font-mono cursor-pointer transition-colors border border-[#334155] flex items-center gap-1"
+                              title="Download official PDF file"
+                            >
+                              <Download className="w-3 h-3 text-[#4ADE80]" />
+                              <span className="hidden md:inline">Download</span>
+                            </button>
+
+                            <button
+                              onClick={handlePrintPdf}
+                              className="p-1 sm:px-2 sm:py-1 bg-[#1E293B] hover:bg-[#334155] text-[#E2E8F0] hover:text-white rounded text-[10px] sm:text-[11px] font-mono cursor-pointer transition-colors border border-[#334155]"
+                              title="Print document"
+                            >
+                              <Printer className="w-3 h-3 text-[#94A3B8]" />
+                            </button>
+
+                            {/* Zoom controls for formatted view */}
+                            {pdfViewMode === 'formatted' && (
+                              <div className="flex items-center gap-0.5 ml-1 bg-[#0F172A] px-1 py-0.5 rounded border border-[#334155]">
+                                <button
+                                  onClick={() => setPdfZoom(z => Math.max(z - 10, 60))}
+                                  className="px-1 text-[#94A3B8] hover:text-white cursor-pointer"
+                                  title="Zoom out"
+                                >
+                                  -
+                                </button>
+                                <span className="text-[10px] text-[#E2E8F0] px-1">{pdfZoom}%</span>
+                                <button
+                                  onClick={() => setPdfZoom(z => Math.min(z + 10, 150))}
+                                  className="px-1 text-[#94A3B8] hover:text-white cursor-pointer"
+                                  title="Zoom in"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* PDF Pages Container */}
-                      <div className="p-4 sm:p-6 overflow-y-auto max-h-[500px] flex flex-col items-center gap-6 bg-[#525659]">
-                        <div className="bg-white text-[#141C2B] w-full max-w-3xl rounded shadow-2xl p-6 sm:p-10 border border-[#CBD5E1] space-y-6">
-                          {/* Official CMPDI Letterhead */}
-                          <div className="border-b-2 border-[#141C2B] pb-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="font-mono text-[10px] font-bold text-[#C8892E] tracking-wider uppercase">
-                                Central Mine Planning &amp; Design Institute Limited
-                              </span>
-                              <span className="font-mono text-[10px] text-[#64748B]">
-                                ISO 9001:2015 CERTIFIED
-                              </span>
+                      {/* PDF Canvas Viewport */}
+                      <div className="p-2 sm:p-6 md:p-8 overflow-y-auto max-h-[640px] flex flex-col items-center bg-[#334155]/90">
+                        {pdfViewMode === 'native_pdf' ? (
+                          <div className="w-full max-w-4xl space-y-3">
+                            <div className="flex items-center justify-between text-xs font-mono text-[#E2E8F0] bg-[#0F172A] px-4 py-2 rounded-lg border border-[#475569]">
+                              <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-[#22C55E]" />
+                                <span>Native Binary PDF Rendering Engine Active</span>
+                              </div>
+                              <button
+                                onClick={handleOpenPdfInNewTab}
+                                className="text-[#38BDF8] hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>Full screen view</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </button>
                             </div>
-                            <h2 className="font-serif font-bold text-lg text-[#141C2B]">
-                              {doc.title}
-                            </h2>
-                            <div className="flex flex-wrap items-center justify-between text-[11px] font-mono text-[#64748B] pt-1">
-                              <span>Ref: <strong>{doc.documentCode}</strong></span>
-                              <span>Division: <strong>{doc.subsidiary}</strong></span>
-                              <span>Version: <strong>v{v2.versionNumber}.0</strong></span>
+                            {pdfBlobUrl ? (
+                              <iframe
+                                src={pdfBlobUrl}
+                                title="Statutory Official PDF Document"
+                                className="w-full h-[620px] rounded-lg border border-[#475569] shadow-2xl bg-white"
+                              />
+                            ) : (
+                              <div className="p-16 text-center text-slate-300 font-mono text-xs">
+                                Initializing native PDF stream...
+                              </div>
+                            )}
+                          </div>
+                        ) : pdfViewMode === 'formatted' ? (
+                          (() => {
+                            const parsedDoc = parseStatutoryText(v2.extractedText || '', {
+                              title: doc.title,
+                              code: doc.documentCode,
+                              subsidiary: doc.subsidiary,
+                              date: v2.uploadedAt ? new Date(v2.uploadedAt).toLocaleDateString() : new Date().toLocaleDateString(),
+                              author: `${v2.uploadedBy.name} (${v2.uploadedBy.employeeId})`
+                            });
+
+                            return (
+                              <div 
+                                className="bg-white text-[#0F172A] w-full max-w-3xl rounded-md shadow-2xl p-6 sm:p-10 md:p-12 border border-[#E2E8F0] transition-all origin-top break-words selection:bg-[#FEF08A] selection:text-[#0F172A]"
+                                style={{ zoom: `${pdfZoom}%` }}
+                              >
+                                {/* Top Gold Border Accent */}
+                                <div className="h-1 bg-[#C8892E] w-full mb-4 rounded-xs" />
+
+                                {/* Official Government Header Banner */}
+                                <div className="flex items-center justify-between gap-2 flex-wrap text-[10px] sm:text-[11px] font-mono text-[#64748B] border-b border-[#F1F5F9] pb-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-[#C8892E]" />
+                                    <span className="font-semibold uppercase tracking-wide text-[#334155]">
+                                      CENTRAL MINE PLANNING &amp; DESIGN INSTITUTE (CMPDI) — STATUTORY BRIEF
+                                    </span>
+                                  </div>
+                                  <span className="font-bold text-[#0F172A]">
+                                    {parsedDoc.code}
+                                  </span>
+                                </div>
+
+                                {/* Document Title */}
+                                <div className="pt-4 pb-3">
+                                  <h2 className="font-sans font-black text-lg sm:text-2xl text-[#0F172A] tracking-tight leading-snug">
+                                    {parsedDoc.title}
+                                  </h2>
+                                </div>
+
+                                {/* Clean Formal Metadata Table */}
+                                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs font-mono mb-6 space-y-1.5">
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <div>
+                                      <span className="text-[#64748B]">Code:</span> <strong className="text-[#0F172A] ml-1">{parsedDoc.code}</strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-[#64748B]">Subsidiary:</span> <strong className="text-[#0F172A] ml-1">{parsedDoc.subsidiary}</strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-[#64748B]">Period:</span> <strong className="text-[#0F172A] ml-1">{parsedDoc.period}</strong>
+                                    </div>
+                                  </div>
+                                  <div className="text-[#64748B] text-[11px] pt-1.5 border-t border-[#E2E8F0] flex flex-wrap gap-4">
+                                    <div>
+                                      <span>Date:</span> <strong className="text-[#334155] ml-1">{parsedDoc.date}</strong>
+                                    </div>
+                                    <div>
+                                      <span>Author:</span> <strong className="text-[#334155] ml-1">{parsedDoc.author}</strong>
+                                    </div>
+                                    <div>
+                                      <span>Filing Version:</span> <strong className="text-[#C8892E] ml-1">v{v2.versionNumber}.0 ({v2.approvalStatus.toUpperCase()})</strong>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Render Formatted Sections */}
+                                <div className="space-y-6 text-xs sm:text-sm text-[#334155] leading-relaxed font-sans">
+                                  {parsedDoc.sections.map((sec, secIdx) => (
+                                    <div key={secIdx} className="space-y-3">
+                                      {/* Section Heading with Amber Accent Bar */}
+                                      <div className="border-b-2 border-[#C8892E] pb-1 inline-block">
+                                        <h3 className="font-sans font-bold text-sm sm:text-base text-[#0F172A] tracking-tight">
+                                          {sec.heading}
+                                        </h3>
+                                      </div>
+
+                                      {/* Section Content Items */}
+                                      <div className="space-y-2.5">
+                                        {sec.items.map((item, itIdx) => {
+                                          if (item.type === 'subhead') {
+                                            return (
+                                              <h4 key={itIdx} className="font-bold text-xs sm:text-sm text-[#1E293B] pt-2">
+                                                {item.text}
+                                              </h4>
+                                            );
+                                          }
+                                          if (item.type === 'bullet') {
+                                            return (
+                                              <div key={itIdx} className="flex items-start gap-2 text-xs sm:text-sm text-[#334155] pl-2">
+                                                <span className="text-[#C8892E] font-bold text-base leading-none mt-0.5">•</span>
+                                                <span className="leading-relaxed">{item.text}</span>
+                                              </div>
+                                            );
+                                          }
+                                          if (item.type === 'directive') {
+                                            return (
+                                              <div key={itIdx} className="p-3 bg-[#F8FAFC] rounded-lg border-l-4 border-[#C8892E] text-xs sm:text-sm text-[#1E293B] my-2">
+                                                <div className="font-medium leading-relaxed">{item.text}</div>
+                                              </div>
+                                            );
+                                          }
+                                          if (item.type === 'table' && item.rows) {
+                                            return (
+                                              <div key={itIdx} className="my-3 overflow-x-auto rounded border border-[#CBD5E1]">
+                                                <table className="w-full text-left text-xs font-mono border-collapse">
+                                                  <tbody>
+                                                    {item.rows.map((row, rIdx) => (
+                                                      <tr key={rIdx} className={rIdx === 0 ? 'bg-[#F1F5F9] font-bold text-[#0F172A] border-b border-[#CBD5E1]' : 'border-b border-[#E2E8F0] hover:bg-[#F8FAFC]'}>
+                                                        {row.map((c, cIdx) => (
+                                                          <td key={cIdx} className="p-2 border-r border-[#E2E8F0] last:border-r-0">
+                                                            {c}
+                                                          </td>
+                                                        ))}
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              </div>
+                                            );
+                                          }
+                                          if (item.type === 'callout') {
+                                            return (
+                                              <div key={itIdx} className="p-3 bg-[#FEF2F2] rounded border-l-4 border-[#DC2626] text-xs font-mono text-[#991B1B] my-2">
+                                                {item.text}
+                                              </div>
+                                            );
+                                          }
+                                          return (
+                                            <p key={itIdx} className="text-xs sm:text-sm text-[#334155] leading-relaxed text-justify">
+                                              {item.text}
+                                            </p>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Official Formal Document Footer */}
+                                <div className="pt-8 mt-8 border-t border-[#E2E8F0] flex items-center justify-between text-[10px] font-mono text-[#94A3B8]">
+                                  <span>CONFIDENTIAL — STATUTORY MINING GOVERNANCE</span>
+                                  <span>Page 1 of 1</span>
+                                </div>
+
+                                {/* Quick Google Drive & Cloud Workspace Action Banner */}
+                                <div className="mt-6 pt-4 border-t border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-4 rounded-xl flex flex-wrap items-center justify-between gap-3 print:hidden">
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-lg bg-[#3B82F6]/10 text-[#2563EB]">
+                                      <FolderOpen className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                      <h5 className="font-bold text-xs text-[#0F172A]">Cloud &amp; Drive Workspace Hub</h5>
+                                      <p className="text-[11px] text-[#64748B]">Open in Google Drive, Docs, or export to local storage</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                      onClick={() => {
+                                        handleDownloadPdf();
+                                        window.open('https://drive.google.com/drive/my-drive', '_blank');
+                                        setPdfToast('Downloaded PDF & launched Google Drive!');
+                                        setTimeout(() => setPdfToast(null), 3500);
+                                      }}
+                                      className="px-3 py-1.5 bg-[#141C2B] hover:bg-[#1E293B] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      title="Save PDF and open Google Drive"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5 text-[#38BDF8]" />
+                                      <span>Open in Google Drive</span>
+                                    </button>
+
+                                    <button
+                                      onClick={() => {
+                                        window.open('https://docs.google.com/document/u/0/', '_blank');
+                                        const text = v2.extractedText || '';
+                                        navigator.clipboard.writeText(text);
+                                        setPdfToast('Opened Google Docs & copied text to clipboard!');
+                                        setTimeout(() => setPdfToast(null), 3500);
+                                      }}
+                                      className="px-3 py-1.5 bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0] text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      title="Open Google Docs editor and copy statutory content"
+                                    >
+                                      <FileText className="w-3.5 h-3.5 text-[#16A34A]" />
+                                      <span>Open Google Docs</span>
+                                    </button>
+
+                                    <button
+                                      onClick={handleOpenPdfInNewTab}
+                                      className="px-3 py-1.5 bg-white hover:bg-[#F1F5F9] text-[#334155] border border-[#CBD5E1] text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      title="Open full PDF in a new Chrome tab"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5 text-[#64748B]" />
+                                      <span>Open in Tab</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div className="w-full max-w-3xl">
+                            <div className="bg-[#0F172A] px-4 py-2 rounded-t-lg text-xs font-mono text-[#94A3B8] border border-b-0 border-[#475569]">
+                              Extracted Raw OCR Text Stream
                             </div>
+                            <pre className="p-4 bg-[#F8FAFC] rounded-b-lg border border-[#CBD5E1] text-xs font-mono text-[#1E293B] whitespace-pre-wrap overflow-x-auto leading-relaxed shadow-xl">
+                              {v2.extractedText || 'No plain text extracted.'}
+                            </pre>
                           </div>
-
-                          {/* Render Document Text */}
-                          <div className="space-y-4 text-xs font-serif leading-relaxed text-[#334155] whitespace-pre-wrap font-sans">
-                            {v2.extractedText}
-                          </div>
-
-                          {/* Footer */}
-                          <div className="pt-6 border-t border-[#EFEBE2] flex items-center justify-between text-[10px] font-mono text-[#8F9BAE]">
-                            <span>MineMind AI Verified Record · {doc.subsidiary}</span>
-                            <span>Digitally Endorsed by {v2.uploadedBy.name}</span>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1700,8 +2434,17 @@ export const CompareVersionsModal: React.FC = () => {
                         </span>
                       </div>
 
-                      <div className="p-3 bg-[#FAF8F3] rounded-lg font-mono text-[11px] text-[#475569] leading-relaxed max-h-72 overflow-y-auto border border-[#EFEBE2] whitespace-pre-wrap">
-                        {benchmarkVersion ? benchmarkVersion.extractedText : (v1?.extractedText || 'No prior version')}
+                      <div className="p-3.5 bg-[#F8FAFC] rounded-lg font-sans text-xs text-[#334155] leading-relaxed max-h-80 overflow-y-auto border border-[#E2E8F0] space-y-2">
+                        {(() => {
+                          const raw = benchmarkVersion ? benchmarkVersion.extractedText : (v1?.extractedText || 'No prior version');
+                          const paras = (raw || '').split('\n\n').filter(Boolean);
+                          if (paras.length === 0) return <div>No text content.</div>;
+                          return paras.map((p, pIdx) => (
+                            <p key={pIdx} className="leading-relaxed text-justify">
+                              {p}
+                            </p>
+                          ));
+                        })()}
                       </div>
 
                       <div className="text-[10px] font-mono text-[#8F9BAE] flex items-center justify-between">
@@ -1738,8 +2481,27 @@ export const CompareVersionsModal: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className={`p-3 bg-[#FAF8F3] rounded-lg font-mono text-[11px] text-[#141C2B] leading-relaxed max-h-72 overflow-y-auto border ${aiEval.categoryMismatch ? 'border-red-300' : 'border-[#C8892E]/40'} whitespace-pre-wrap`}>
-                      {v2.extractedText}
+                    <div className={`p-3.5 bg-[#F8FAFC] rounded-lg font-sans text-xs text-[#0F172A] leading-relaxed max-h-80 overflow-y-auto border ${aiEval.categoryMismatch ? 'border-red-300' : 'border-[#CBD5E1]'} space-y-2`}>
+                      {(() => {
+                        const raw = v2.extractedText || '';
+                        const paras = raw.split('\n\n').filter(Boolean);
+                        if (paras.length === 0) return <div>No text content.</div>;
+                        return paras.map((p, pIdx) => {
+                          const isHeading = /^(\d+\.|\bSection\b|\bExecutive Directive\b|\bFindings\b)/i.test(p);
+                          if (isHeading) {
+                            return (
+                              <h4 key={pIdx} className="font-bold text-[#0F172A] pt-1 text-xs border-b border-[#E2E8F0] pb-0.5">
+                                {p}
+                              </h4>
+                            );
+                          }
+                          return (
+                            <p key={pIdx} className="leading-relaxed text-[#334155] text-justify">
+                              {p}
+                            </p>
+                          );
+                        });
+                      })()}
                     </div>
 
                     <div className="text-[10px] font-mono text-[#8F9BAE] flex items-center justify-between">
@@ -1914,6 +2676,117 @@ export const CompareVersionsModal: React.FC = () => {
                   <span>Send Change Request</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {pdfToast && (
+        <div className="fixed bottom-6 right-6 z-[80] bg-[#0F172A] text-white px-4 py-2.5 rounded-xl shadow-2xl border border-[#334155] flex items-center gap-2 text-xs font-mono animate-in fade-in slide-in-from-bottom-3">
+          <CheckCircle2 className="w-4 h-4 text-[#22C55E]" />
+          <span>{pdfToast}</span>
+        </div>
+      )}
+
+      {/* Google Drive / Google Docs Direct Integration Modal */}
+      {googleDriveModalOpen && (
+        <div className="fixed inset-0 z-[75] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#CBD5E1] rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95 text-[#0F172A]">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]">
+                  <FolderOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-[#0F172A]">Google Drive &amp; Cloud Document Hub</h3>
+                  <p className="text-xs text-[#64748B] font-mono">{doc.documentCode} · {doc.subsidiary}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setGoogleDriveModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0F172A] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs leading-relaxed text-[#334155]">
+              <p>
+                Manage, collaborate, and open this statutory technical filing directly within your Google Workspace or Google Drive environment:
+              </p>
+
+              <div className="grid grid-cols-1 gap-2.5 pt-1">
+                {/* 1. Download & Open in Google Drive */}
+                <button
+                  onClick={() => {
+                    handleDownloadPdf();
+                    window.open('https://drive.google.com/drive/my-drive', '_blank');
+                    setGoogleDriveModalOpen(false);
+                  }}
+                  className="p-3 bg-[#F8FAFC] hover:bg-[#EFF6FF] border border-[#E2E8F0] hover:border-[#3B82F6] rounded-xl text-left transition-all cursor-pointer flex items-center justify-between group"
+                >
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-sm text-[#0F172A] flex items-center gap-1.5">
+                      <span>1. Save &amp; Upload to Google Drive</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-[#3B82F6] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    <div className="text-[11px] text-[#64748B]">
+                      Downloads official PDF and launches your Google Drive repository.
+                    </div>
+                  </div>
+                  <Download className="w-5 h-5 text-[#3B82F6] flex-shrink-0" />
+                </button>
+
+                {/* 2. Open Google Docs */}
+                <button
+                  onClick={() => {
+                    window.open('https://docs.google.com/document/u/0/', '_blank');
+                    setGoogleDriveModalOpen(false);
+                  }}
+                  className="p-3 bg-[#F8FAFC] hover:bg-[#F0FDF4] border border-[#E2E8F0] hover:border-[#22C55E] rounded-xl text-left transition-all cursor-pointer flex items-center justify-between group"
+                >
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-sm text-[#0F172A] flex items-center gap-1.5">
+                      <span>2. Open Google Docs Editor</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-[#22C55E] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    <div className="text-[11px] text-[#64748B]">
+                      Open Google Docs workspace to draft or review statutory memos.
+                    </div>
+                  </div>
+                  <FileText className="w-5 h-5 text-[#22C55E] flex-shrink-0" />
+                </button>
+
+                {/* 3. Copy Text for Google Docs / Word */}
+                <button
+                  onClick={() => {
+                    const text = v2.extractedText || '';
+                    navigator.clipboard.writeText(text);
+                    setPdfToast('Document text copied to clipboard!');
+                    setTimeout(() => setPdfToast(null), 3000);
+                    setGoogleDriveModalOpen(false);
+                  }}
+                  className="p-3 bg-[#F8FAFC] hover:bg-[#FAF5FF] border border-[#E2E8F0] hover:border-[#A855F7] rounded-xl text-left transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-sm text-[#0F172A]">3. Copy Structured Text to Clipboard</div>
+                    <div className="text-[11px] text-[#64748B]">
+                      Quickly paste statutory directives directly into Google Docs or Sheets.
+                    </div>
+                  </div>
+                  <ClipboardCheck className="w-5 h-5 text-[#A855F7] flex-shrink-0" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-[#E2E8F0]">
+              <button
+                onClick={() => setGoogleDriveModalOpen(false)}
+                className="px-4 py-2 bg-[#0F172A] hover:bg-[#1E293B] text-white rounded-lg text-xs font-bold cursor-pointer"
+              >
+                Close Hub
+              </button>
             </div>
           </div>
         </div>

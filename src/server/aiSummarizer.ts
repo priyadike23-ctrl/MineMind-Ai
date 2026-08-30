@@ -39,6 +39,8 @@ export interface SummarizeDocResponse {
   tags?: string[];
   keyHighlights?: string[];
   provider: 'gemini' | 'grok' | 'intelligent-extractor';
+  isMiningDomainRelevant?: boolean;
+  domainRejectionReason?: string;
 }
 
 export async function generateAccurateDocumentSummary(
@@ -48,7 +50,7 @@ export async function generateAccurateDocumentSummary(
   const textSample = (extractedText || '').trim().slice(0, 15000);
 
   const prompt = `You are a Senior Technical Mining Document Specialist for CMPDI / Coal India Limited (CIL).
-Analyze the following extracted content from the uploaded file "${fileName}" (${fileSize}).
+Evaluate and analyze the following extracted content from the uploaded file "${fileName}" (${fileSize}).
 
 Uploaded File Name: ${fileName}
 Target Subsidiary/Division: ${subsidiary || 'CMPDI HQ'}
@@ -60,16 +62,20 @@ ${textSample.length > 50 ? textSample : `[No text extracted - binary/scanned fil
 """
 
 Instructions:
-1. Provide a PRECISE, ACCURATE, and FACTUAL Technical Summary (2 to 4 sentences).
+1. FIRST, determine if this document is genuinely related to Mining, Geology, Coal Extraction, DGMS Safety, Boreholes, HEMM Machinery, or Environmental Clearances in Coal India / CMPDI.
+   - If this document is about general computer science/IT (e.g. binary conversion, parity generator/checker, circuits, java, react), college physics/chemistry experiments, recipes, traditional biomass/cooking fuel, or unrelated generic topics, set "isMiningDomainRelevant" to FALSE and provide a clear "domainRejectionReason".
+   - If it is about coal, mining, geology, strata, drilling, DGMS safety circulars, colliery operations, or machinery, set "isMiningDomainRelevant" to TRUE.
+2. Provide a PRECISE, ACCURATE, and FACTUAL Technical Summary (2 to 4 sentences).
    - Base the summary STRICTLY on what this specific document is actually about.
    - Mention key subjects, parameters, equipment, protocols, geological formations, or topics explicitly discussed in the text.
-   - Do NOT invent fake methane guidelines or generic templates if the document is about something else (e.g. user guide, drill manual, borehole survey, dispatch report, electrical standard, endless rope haulage, etc.).
-2. Suggest a clean, professional Document Title derived directly from the document's actual subject matter (or filename if text is sparse).
-3. Identify the most accurate Document Type among: "geological_report", "mine_plan", "safety_sop", "production_sheet".
-4. Provide 3-5 relevant topic tags.
+3. Suggest a clean, professional Document Title derived directly from the document's actual subject matter (or filename if text is sparse).
+4. Identify the most accurate Document Type among: "geological_report", "mine_plan", "safety_sop", "production_sheet".
+5. Provide 3-5 relevant topic tags.
 
 Respond ONLY with valid JSON in this exact structure:
 {
+  "isMiningDomainRelevant": true,
+  "domainRejectionReason": "",
   "title": "Clear Technical Title",
   "summary": "Precise factual 2-3 sentence technical summary of the exact document contents.",
   "detectedType": "geological_report | mine_plan | safety_sop | production_sheet",
@@ -106,6 +112,8 @@ Respond ONLY with valid JSON in this exact structure:
               tags: parsed.tags,
               keyHighlights: parsed.keyHighlights,
               provider: 'gemini',
+              isMiningDomainRelevant: parsed.isMiningDomainRelevant !== false,
+              domainRejectionReason: parsed.domainRejectionReason || undefined,
             };
           }
           break;
