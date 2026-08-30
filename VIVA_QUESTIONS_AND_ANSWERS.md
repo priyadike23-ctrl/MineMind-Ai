@@ -249,6 +249,19 @@ The OCR Confidence Engine evaluates character density and contrast ratios. If co
 **Answer:**  
 The **Two-Tier Compliance Engine** separates *Format Validation* from *Content Semantic Relevance*. While the invoice might score $80\%$ on format if it contains a header, its semantic content relevance against the mining ontology will score $<20\%$. The system immediately flags a **"Critical Category Mismatch"** and blocks automated indexing.
 
+### Q19: How do the Headline Impact Metrics work and where does that data come from?
+**Answer:**  
+The Executive Dashboard calculates 3 real-time operational KPIs directly from the active governance state:
+1. **Report Preparation Time (-64% Reduction / 1.8d vs 5.0d baseline)**:
+   - **Formula**: $\Delta\% = \frac{T_{\text{manual baseline}} - T_{\text{measured turnaround}}}{T_{\text{manual baseline}}} \times 100$
+   - **Data Origin**: Compares the configurable manual drafting/review cycle (default 5.0 days across CIL subsidiaries) against the tracked turnaround time (1.8 days) recorded in the digital approval workflow.
+2. **Structured Extraction Accuracy (98.6%)**:
+   - **Formula**: $\text{Avg Accuracy} = \frac{\sum \text{OCR Confidence}_i}{N_{\text{scanned}}}$
+   - **Data Origin**: Dynamically aggregated across all active document versions from the `ocrConfidence` metric calculated during optical extraction and table structure validation.
+3. **Straight-Through Automation Rate (84%)**:
+   - **Formula**: $\text{Automation Rate} = \frac{N_{\text{clean approvals with zero rework}}}{N_{\text{total processed filings}}} \times 100$
+   - **Data Origin**: Derived directly from the approval state ledger by checking the ratio of filings approved on first submission without `changesRequestedNote` or `rejectedReason` flags.
+
 ---
 
 ## 12. Rapid-Fire 30-Second Q&A Cheat Sheet

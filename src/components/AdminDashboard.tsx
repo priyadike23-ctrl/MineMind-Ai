@@ -20,7 +20,13 @@ import {
   Timer,
   FileCheck2,
   Bot,
-  Play
+  Play,
+  Info,
+  HelpCircle,
+  Calculator,
+  Database,
+  Activity,
+  X
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
@@ -35,6 +41,7 @@ export const AdminDashboard: React.FC = () => {
   } = useApp();
 
   const [expandedUrgentId, setExpandedUrgentId] = useState<string | null>('ver_korba_03');
+  const [showMetricsInfo, setShowMetricsInfo] = useState<boolean>(false);
 
   // Configurable manual baseline in days (Estimated)
   const [manualBaselineDays, setManualBaselineDays] = useState<number>(5.0);
@@ -293,10 +300,106 @@ export const AdminDashboard: React.FC = () => {
               </p>
             </div>
           </div>
-          <span className="self-start sm:self-center text-[10px] font-mono font-semibold px-2.5 py-1 rounded-lg bg-white border border-[#DACFBE] text-[#475569] shadow-2xs">
-            Goal-Aligned Ledger
-          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowMetricsInfo(!showMetricsInfo)}
+              className={`px-2.5 py-1 text-xs font-mono font-bold rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                showMetricsInfo 
+                  ? 'bg-[#141C2B] text-white border-[#141C2B]' 
+                  : 'bg-white hover:bg-[#F1F5F9] text-[#C8892E] border-[#DACFBE]'
+              }`}
+              title="Click to view formulas, math models, and live data sources"
+            >
+              <Calculator className="w-3.5 h-3.5" />
+              <span>{showMetricsInfo ? 'Hide Math & Sources' : 'How It Works (Data Lineage)'}</span>
+            </button>
+
+            <span className="hidden sm:inline-flex text-[10px] font-mono font-semibold px-2.5 py-1 rounded-lg bg-white border border-[#DACFBE] text-[#475569] shadow-2xs">
+              Goal-Aligned Ledger
+            </span>
+          </div>
         </div>
+
+        {/* Expandable Interactive Math & Data Lineage Card */}
+        {showMetricsInfo && (
+          <div className="bg-white border-2 border-[#C8892E]/40 rounded-xl p-4 sm:p-5 shadow-sm space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between pb-2 border-b border-[#EFEBE2]">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-[#C8892E]" />
+                <h4 className="font-serif font-bold text-sm text-[#141C2B]">
+                  Impact Metrics Data Lineage &amp; Mathematical Formulation
+                </h4>
+              </div>
+              <button 
+                onClick={() => setShowMetricsInfo(false)}
+                className="text-[#64748B] hover:text-[#141C2B] p-1 rounded hover:bg-[#F1F5F9] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
+              {/* Metric 1 Breakdown */}
+              <div className="bg-[#FAF8F3] border border-[#E4E0D6] rounded-lg p-3.5 space-y-2">
+                <div className="flex items-center justify-between font-bold text-[#141C2B]">
+                  <span className="flex items-center gap-1.5">
+                    <Timer className="w-3.5 h-3.5 text-[#C8892E]" />
+                    <span>1. Report Preparation Time</span>
+                  </span>
+                  <span className="font-mono text-[#C8892E]">-{timeReductionPct}%</span>
+                </div>
+                <div className="font-mono text-[10px] bg-white p-2 rounded border border-[#E8E1D3] text-[#334155] leading-relaxed">
+                  <strong>Formula:</strong><br />
+                  <code>Δ% = ((T_baseline - T_measured) / T_baseline) × 100</code>
+                </div>
+                <div className="text-[11px] text-[#475569] space-y-1">
+                  <p><strong>• Data Origin:</strong> Traditional CIL manual review cycle ({manualBaselineDays} days) vs. MineMind-AI automated digital pipeline ({measuredTurnaroundDays} days).</p>
+                  <p><strong>• Live Calculation:</strong> (({manualBaselineDays} - {measuredTurnaroundDays}) / {manualBaselineDays}) × 100 = <strong>{timeReductionPct}% saved</strong>.</p>
+                </div>
+              </div>
+
+              {/* Metric 2 Breakdown */}
+              <div className="bg-[#FAF8F3] border border-[#E4E0D6] rounded-lg p-3.5 space-y-2">
+                <div className="flex items-center justify-between font-bold text-[#141C2B]">
+                  <span className="flex items-center gap-1.5">
+                    <FileCheck2 className="w-3.5 h-3.5 text-[#2563EB]" />
+                    <span>2. Extraction Accuracy</span>
+                  </span>
+                  <span className="font-mono text-[#2563EB]">{avgExtractionAccuracy}%</span>
+                </div>
+                <div className="font-mono text-[10px] bg-white p-2 rounded border border-[#E8E1D3] text-[#334155] leading-relaxed">
+                  <strong>Formula:</strong><br />
+                  <code>Avg_Accuracy = (Σ OCR_Confidence_i) / N_scanned</code>
+                </div>
+                <div className="text-[11px] text-[#475569] space-y-1">
+                  <p><strong>• Data Origin:</strong> Extracted directly from <code>ocrConfidence</code> metadata across all active document versions in the repository.</p>
+                  <p><strong>• Live Sample:</strong> Computed from {versionsWithOcr.length} scanned logs out of {allVersions.length} total versions.</p>
+                </div>
+              </div>
+
+              {/* Metric 3 Breakdown */}
+              <div className="bg-[#FAF8F3] border border-[#E4E0D6] rounded-lg p-3.5 space-y-2">
+                <div className="flex items-center justify-between font-bold text-[#141C2B]">
+                  <span className="flex items-center gap-1.5">
+                    <Bot className="w-3.5 h-3.5 text-[#16A34A]" />
+                    <span>3. Automation Rate</span>
+                  </span>
+                  <span className="font-mono text-[#16A34A]">{automationRateValue}%</span>
+                </div>
+                <div className="font-mono text-[10px] bg-white p-2 rounded border border-[#E8E1D3] text-[#334155] leading-relaxed">
+                  <strong>Formula:</strong><br />
+                  <code>Rate = (N_clean_approvals / N_processed_runs) × 100</code>
+                </div>
+                <div className="text-[11px] text-[#475569] space-y-1">
+                  <p><strong>• Data Origin:</strong> Live ratio of submissions approved without correction requests vs. total processed filings.</p>
+                  <p><strong>• Live Sample:</strong> {cleanProcessedVersions.length} clean approvals / {totalProcessedVersions.length || documents.length} total runs = <strong>{automationRateValue}%</strong>.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Three Streamlined Headline Stat Blocks */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
