@@ -255,7 +255,7 @@ Respond ONLY in valid JSON matching:
   "citedChunkIndices": [1, 2]
 }`;
 
-    const geminiModels = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.7-flash'];
+    const geminiModels = ['gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-flash-latest'];
     for (const gModel of geminiModels) {
       let attempts = 0;
       while (attempts < 2) {
@@ -272,7 +272,11 @@ Respond ONLY in valid JSON matching:
 
           const rawText = result.text?.trim();
           if (rawText) {
-            const parsed = JSON.parse(rawText);
+            const cleaned = rawText
+              .replace(/^```(?:json)?\s*/i, '')
+              .replace(/\s*```$/i, '')
+              .trim();
+            const parsed = JSON.parse(cleaned);
             if (parsed.foundInKnowledgeBase === false || !parsed.answer) {
               return {
                 foundInKnowledgeBase: false,

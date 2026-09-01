@@ -84,7 +84,7 @@ Respond ONLY with valid JSON in this exact structure:
 }`;
 
   // 1. Try Google Gemini API with supported models and graceful multi-model fallback
-  const geminiModels = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.7-flash'];
+  const geminiModels = ['gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-flash-latest'];
   const ai = getGeminiClient();
 
   if (ai) {
@@ -104,7 +104,11 @@ Respond ONLY with valid JSON in this exact structure:
 
           const rawJson = response.text?.trim();
           if (rawJson) {
-            const parsed = JSON.parse(rawJson);
+            const cleaned = rawJson
+              .replace(/^```(?:json)?\s*/i, '')
+              .replace(/\s*```$/i, '')
+              .trim();
+            const parsed = JSON.parse(cleaned);
             return {
               title: parsed.title,
               summary: parsed.summary,

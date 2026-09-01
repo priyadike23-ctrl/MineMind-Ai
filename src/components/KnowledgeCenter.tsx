@@ -585,6 +585,8 @@ export const KnowledgeCenter: React.FC = () => {
 
     setIsProcessingOcr(false);
 
+    const isAdmin = currentUser.role === 'admin';
+
     if (isUpdateFlow && targetDocForUpdate) {
       const newVersion: DocumentVersion = {
         id: newVersionId,
@@ -603,7 +605,12 @@ export const KnowledgeCenter: React.FC = () => {
           subsidiary: currentUser.subsidiary,
         },
         uploadedAt: new Date().toISOString(),
-        approvalStatus: 'pending',
+        approvalStatus: isAdmin ? 'approved' : 'pending',
+        approvedBy: isAdmin ? { id: currentUser.id, name: currentUser.name } : undefined,
+        approvedAt: isAdmin ? new Date().toISOString() : undefined,
+        reviewedBy: isAdmin ? { id: currentUser.id, name: currentUser.name } : undefined,
+        reviewedAt: isAdmin ? new Date().toISOString() : undefined,
+        reviewerNote: isAdmin ? 'Directly verified and approved by Directorate Administrator.' : undefined,
         approvalPriority: uploadReason.toLowerCase().includes('variance') || uploadReason.toLowerCase().includes('amendment') || uploadReason.toLowerCase().includes('safety') ? 'urgent' : 'normal',
         aiRiskReason: uploadReason.toLowerCase().includes('variance') 
           ? 'AI Flag: Proposed update introduces numerical deviation on production/reserve parameters.'
@@ -631,7 +638,12 @@ export const KnowledgeCenter: React.FC = () => {
           subsidiary: currentUser.subsidiary,
         },
         uploadedAt: new Date().toISOString(),
-        approvalStatus: 'pending',
+        approvalStatus: isAdmin ? 'approved' : 'pending',
+        approvedBy: isAdmin ? { id: currentUser.id, name: currentUser.name } : undefined,
+        approvedAt: isAdmin ? new Date().toISOString() : undefined,
+        reviewedBy: isAdmin ? { id: currentUser.id, name: currentUser.name } : undefined,
+        reviewedAt: isAdmin ? new Date().toISOString() : undefined,
+        reviewerNote: isAdmin ? 'Directly verified, approved, and indexed by Directorate Administrator.' : undefined,
         approvalPriority: uploadReason.toLowerCase().includes('safety') || uploadReason.toLowerCase().includes('urgent') ? 'urgent' : 'normal',
         extractedText: defaultContent,
         ocrConfidence: 98.8,
@@ -647,7 +659,7 @@ export const KnowledgeCenter: React.FC = () => {
         currentVersionId: newVersion.id,
         versions: [newVersion],
         tags: [uploadType.replace('_', ' '), uploadSubsidiary, 'Exploration'],
-        status: 'pending',
+        status: isAdmin ? 'approved' : 'pending',
         createdAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
       };
@@ -1396,6 +1408,25 @@ export const KnowledgeCenter: React.FC = () => {
 
             {/* Body */}
             <div className="p-6 overflow-y-auto space-y-4 bg-[#F7F5F0] flex-1 text-xs">
+              {/* Role Authority Indicator */}
+              {currentUser.role === 'admin' ? (
+                <div className="p-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg text-[#166534] flex items-start gap-2.5">
+                  <ShieldCheck className="w-4 h-4 text-[#16A34A] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Directorate Administrator Direct Approval: </span>
+                    <span>As an Administrator ({currentUser.name}), documents and revisions you upload bypass the review queue and are directly approved, signed, and published to the production Knowledge Base.</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg text-[#1E40AF] flex items-start gap-2.5">
+                  <Clock className="w-4 h-4 text-[#3B82F6] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Officer Contributor Submission: </span>
+                    <span>Your document will be submitted to the Directorate Approval Queue for review and statutory verification by an authorized administrator.</span>
+                  </div>
+                </div>
+              )}
+
               {/* Duplicate Detection Warning Banner (Section 5.4 Spec) */}
               {duplicateWarning && (
                 <div className="p-3 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[#991B1B] flex items-start gap-2.5">
@@ -1801,9 +1832,13 @@ export const KnowledgeCenter: React.FC = () => {
                 type="button"
                 disabled={!uploadFileName || !uploadReason || isProcessingOcr || Boolean(domainValidationError)}
                 onClick={startOcrPipeline}
-                className="px-5 py-2.5 bg-[#141C2B] hover:bg-[#1E293B] disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-[#141C2B] hover:bg-[#1E293B] disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed shadow-xs"
               >
-                <span>{isUpdateFlow ? 'Submit Revision to Approval Queue' : 'Ingest Document'}</span>
+                <span>
+                  {currentUser.role === 'admin' 
+                    ? (isUpdateFlow ? 'Directly Approve & Publish Revision' : 'Directly Approve & Publish Document')
+                    : (isUpdateFlow ? 'Submit Revision to Approval Queue' : 'Ingest & Submit for Review')}
+                </span>
                 <ArrowRight className="w-3.5 h-3.5 text-[#C8892E]" />
               </button>
             </div>

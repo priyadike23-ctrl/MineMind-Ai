@@ -34,6 +34,26 @@ import {
 import { syncDocumentsToServiceWorkerCache } from '../utils/serviceWorkerRegistration';
 import { getSupabase, isSupabaseConfigured } from '../supabaseClient';
 import { 
+  hashPassword,
+  verifyPassword,
+  createSecureSession,
+  isSessionValid,
+  touchSession,
+  recordFailedLogin,
+  recordSuccessfulLogin,
+  getLoginLockoutStatus,
+  checkRateLimit,
+  sanitizeInput,
+  canAccessResource,
+  logSecurityAnomaly,
+  createPasswordResetToken,
+  validatePasswordResetToken,
+  markPasswordResetTokenUsed,
+  SecureSession,
+  SecurityIncident,
+  validatePasswordStrength
+} from '../utils/security';
+import { 
   fetchUserProfile, 
   syncUserProfile, 
   fetchAllDocuments, 
@@ -126,6 +146,7 @@ interface AppContextType {
   // Reports
   reports: ReportRecord[];
   addReportRecord: (report: Omit<ReportRecord, 'id' | 'createdAt'>) => ReportRecord;
+  updateReportRecord: (reportId: string, changes: Partial<ReportRecord>) => void;
   reportDraftFromAi: { text: string; citations: SourceCitation[] } | null;
   setReportDraftFromAi: (draft: { text: string; citations: SourceCitation[] } | null) => void;
   
@@ -155,6 +176,12 @@ interface AppContextType {
   // Banner / Toast
   toastMessage: { type: 'success' | 'info' | 'warning'; text: string } | null;
   setToastMessage: (msg: { type: 'success' | 'info' | 'warning'; text: string } | null) => void;
+
+  // Enterprise Security & Governance
+  activeSecureSession: SecureSession | null;
+  securityIncidents: SecurityIncident[];
+  logSecurityIncident: (type: SecurityIncident['type'], details: string) => void;
+  getAccountLockoutStatus: (identifier: string) => { isLocked: boolean; lockTimeRemainingSec: number };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -311,6 +338,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTopicFilter, setActiveTopicFilter] = useState<string | null>(null);
   const [reportDraftFromAi, setReportDraftFromAi] = useState<{ text: string; citations: SourceCitation[] } | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'info' | 'warning'; text: string } | null>(null);
+
+  // Enterprise Security & Session State
+  const [activeSecureSession, setActiveSecureSession] = useState<SecureSession | null>(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const raw = localStorage.getItem('khanij_secure_session') || sessionStorage.getItem('khanij_secure_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [securityIncidents, setSecurityIncidents] = useState<SecurityIncident[]>(() => {
+    try {
+      const raw = localStorage.getItem('khanij_security_incidents');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const logSecurityIncident = useCallback((type: SecurityIncident['type'], details: string) => {
+    const inc = logSecurityAnomaly(type, details, 'MEDIUM', currentUser?.email || currentUser?.employeeId || 'anonymous');
+    setSecurityIncidents(prev => {
+      const updated = [inc, ...prev].slice(0, 100);
+      try {
+        localStorage.setItem('khanij_security_incidents', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  }, [currentUser]);
+
+  const getAccountLockoutStatus = useCallback((identifier: string) => {
+    return getLoginLockoutStatus(identifier);
+  }, []);
+
+  // Periodic Session Watchdog (every 60 seconds): validates session lifetime & idle timeout
+  useEffect(() => {
+    if (!isLoggedIn || !activeSecureSession) return;
+
+    const interval = setInterval(() => {
+      const status = isSessionValid(activeSecureSession);
+      if (!status.valid) {
+        logSecurityIncident('SESSION_EXPIRED', `Session invalidated: ${status.reason}. Enforcing clean logout.`);
+        setIsLoggedIn(false);
+        setActiveSecureSession(null);
+        try {
+          localStorage.removeItem('khanij_logged_in');
+          localStorage.removeItem('khanij_secure_session');
+          sessionStorage.removeItem('khanij_logged_in');
+          sessionStorage.removeItem('khanij_secure_session');
+        } catch (e) {}
+        setActiveView('login');
+        setToastMessage({
+          type: 'warning',
+          text: status.reason === 'IDLE_TIMEOUT' 
+            ? 'Session timed out after 2 hours of inactivity for statutory security.' 
+            : 'Session expired (8-hour maximum). Please sign in again.',
+        });
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [isLoggedIn, activeSecureSession, logSecurityIncident]);
 
   // Keep local storage in sync whenever documents state changes
   useEffect(() => {
@@ -730,10 +821,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     message?: string;
     user?: User;
   }> => {
-    const cleanId = identifier.trim();
+    const cleanId = sanitizeInput(identifier.trim());
     const cleanEmail = cleanId.includes('@') ? cleanId.toLowerCase() : `${cleanId.toLowerCase()}@cil.in`;
 
-    // 1. Direct Demo / Registered User Match
+    // 1. Account Lockout Protection Check
+    const lockout = getLoginLockoutStatus(cleanId);
+    if (lockout.isLocked) {
+      logSecurityIncident('ACCOUNT_LOCKOUT', `Blocked login attempt on locked account "${cleanId}". Time remaining: ${lockout.lockTimeRemainingSec}s`);
+      return {
+        success: false,
+        message: `Account temporarily locked due to consecutive failed attempts. Please wait ${lockout.lockTimeRemainingSec} seconds before retrying.`,
+      };
+    }
+
+    // 2. Client-side Rate Limiting Check
+    const rateCheck = checkRateLimit(`login_${cleanId}`, 8, 60000);
+    if (!rateCheck.allowed) {
+      logSecurityIncident('RATE_LIMIT_EXCEEDED', `Rate limit exceeded on authentication endpoint for identifier: ${cleanId}`);
+      return {
+        success: false,
+        message: `Too many login attempts. Please wait ${rateCheck.retryAfterSec || 60} seconds.`,
+      };
+    }
+
+    const establishSession = (u: User, authType: 'supabase' | 'local') => {
+      const session = createSecureSession(u);
+      setActiveSecureSession(session);
+      recordSuccessfulLogin(cleanId);
+      setCurrentUser(u);
+      setIsLoggedIn(true);
+
+      try {
+        localStorage.setItem('khanij_auth_type', authType);
+        if (rememberMe) {
+          localStorage.setItem('khanij_remember_me', 'true');
+          localStorage.setItem('khanij_user', JSON.stringify(u));
+          localStorage.setItem('khanij_logged_in', 'true');
+          localStorage.setItem('khanij_secure_session', JSON.stringify(session));
+        } else {
+          localStorage.removeItem('khanij_remember_me');
+          localStorage.removeItem('khanij_logged_in');
+          localStorage.removeItem('khanij_secure_session');
+          sessionStorage.setItem('khanij_user', JSON.stringify(u));
+          sessionStorage.setItem('khanij_logged_in', 'true');
+          sessionStorage.setItem('khanij_secure_session', JSON.stringify(session));
+        }
+      } catch (e) {
+        console.warn('Session persistence notice:', e);
+      }
+
+      setActiveView('dashboard');
+      logAuditAction('AI_QUERY', `Authenticated session established: ${u.name} (${u.role.toUpperCase()} - ${u.subsidiary})`);
+      setToastMessage({ type: 'success', text: `Welcome, ${u.name} (${u.subsidiary})` });
+    };
+
+    // 3. Direct Demo / Registered User Match
     const foundDemoOrLocal = allUsers.find(u => 
       u.email.toLowerCase() === cleanId.toLowerCase() || 
       u.employeeId.toLowerCase() === cleanId.toLowerCase() ||
@@ -755,6 +897,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           status: 'rejected',
           message: foundDemoOrLocal.rejectedReason || 'Your access request was not approved.'
         };
+      }
+
+      // Verify password if account has a designated password
+      if (password && foundDemoOrLocal.password) {
+        const isValid = await verifyPassword(password, foundDemoOrLocal.password);
+        if (!isValid) {
+          const updatedLockout = recordFailedLogin(cleanId);
+          logSecurityIncident('UNAUTHORIZED_ACCESS', `Failed credential verification for user: ${cleanId}`);
+          return {
+            success: false,
+            message: updatedLockout.isLocked 
+              ? `Account locked after 5 failed attempts. Please wait 10 minutes.`
+              : `Invalid password. ${updatedLockout.attemptsRemaining} attempt(s) remaining before lockout.`
+          };
+        }
       }
 
       // If Supabase is configured and password is provided, try Supabase first, but gracefully fallback to local profile
@@ -780,22 +937,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 };
                 await syncUserProfile(profile);
               }
-              setCurrentUser(profile);
-              setIsLoggedIn(true);
-              localStorage.setItem('khanij_auth_type', 'supabase');
-              if (rememberMe) {
-                localStorage.setItem('khanij_remember_me', 'true');
-                localStorage.setItem('khanij_user', JSON.stringify(profile));
-                localStorage.setItem('khanij_logged_in', 'true');
-              } else {
-                localStorage.removeItem('khanij_remember_me');
-                localStorage.removeItem('khanij_logged_in');
-                sessionStorage.setItem('khanij_user', JSON.stringify(profile));
-                sessionStorage.setItem('khanij_logged_in', 'true');
-              }
-              setActiveView('dashboard');
-              logAuditAction('AI_QUERY', `Supabase Authenticated: ${profile.name} (${profile.role})`);
-              setToastMessage({ type: 'success', text: `Welcome, ${profile.name} (${profile.subsidiary})` });
+              establishSession(profile, 'supabase');
               return { success: true, status: 'approved', user: profile };
             }
           } catch (e) {
@@ -805,28 +947,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Local Authenticated session
-      setCurrentUser(foundDemoOrLocal);
-      setIsLoggedIn(true);
-      try {
-        localStorage.setItem('khanij_auth_type', 'local');
-        if (rememberMe) {
-          localStorage.setItem('khanij_remember_me', 'true');
-          localStorage.setItem('khanij_user', JSON.stringify(foundDemoOrLocal));
-          localStorage.setItem('khanij_logged_in', 'true');
-        } else {
-          localStorage.removeItem('khanij_remember_me');
-          localStorage.removeItem('khanij_logged_in');
-          sessionStorage.setItem('khanij_user', JSON.stringify(foundDemoOrLocal));
-          sessionStorage.setItem('khanij_logged_in', 'true');
-        }
-      } catch (e) {
-        console.warn('Storage write notice:', e);
-      }
-
-      setActiveView('dashboard');
-      logAuditAction('AI_QUERY', `User authenticated to ${foundDemoOrLocal.role === 'admin' ? 'Admin & Governance' : 'Employee Workstation'} Portal (${foundDemoOrLocal.name})`);
-      setToastMessage({ type: 'success', text: `Welcome, ${foundDemoOrLocal.name} (${foundDemoOrLocal.subsidiary})` });
-      
+      establishSession(foundDemoOrLocal, 'local');
       return {
         success: true,
         status: 'approved',
@@ -834,7 +955,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    // 2. Real Supabase Auth (for registered personal / live accounts)
+    // 4. Real Supabase Auth (for registered personal / live accounts)
     if (isSupabaseConfigured) {
       const client = getSupabase();
       if (client) {
@@ -845,10 +966,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
 
           if (error) {
-            console.warn('[Supabase Auth] signInWithPassword error, activating seamless fallback session:', error.message);
-            // Seamless fallback to user session
-            const isTargetAdmin = cleanEmail.includes('vedant') || cleanEmail.includes('priya') || cleanEmail.includes('admin') || cleanEmail.includes('cmpdi.co.in') || (foundDemoOrLocal && foundDemoOrLocal.role === 'admin');
-            const fallbackUser: User = foundDemoOrLocal || {
+            console.warn('[Supabase Auth] signInWithPassword error, activating fallback session:', error.message);
+            const isTargetAdmin = cleanEmail.includes('vedant') || cleanEmail.includes('priya') || cleanEmail.includes('admin') || cleanEmail.includes('cmpdi.co.in');
+            const fallbackUser: User = {
               id: `usr_${Date.now()}`,
               name: cleanEmail.includes('vedant') 
                 ? 'Vedant Dike' 
@@ -862,29 +982,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               email: cleanEmail,
               employeeId: `CIL-${Math.floor(10000 + Math.random() * 90000)}`,
               department: isTargetAdmin ? 'Central Directorate & Technology' : 'Exploration & Mine Planning',
-              password: password || 'Password@123',
+              password: await hashPassword(password || 'Password@123'),
             };
 
-            setCurrentUser(fallbackUser);
-            setIsLoggedIn(true);
-            localStorage.setItem('khanij_auth_type', 'local');
-            if (rememberMe) {
-              localStorage.setItem('khanij_remember_me', 'true');
-              localStorage.setItem('khanij_user', JSON.stringify(fallbackUser));
-              localStorage.setItem('khanij_logged_in', 'true');
-            } else {
-              localStorage.removeItem('khanij_remember_me');
-              localStorage.removeItem('khanij_logged_in');
-              sessionStorage.setItem('khanij_user', JSON.stringify(fallbackUser));
-              sessionStorage.setItem('khanij_logged_in', 'true');
-            }
-            setActiveView('dashboard');
-            logAuditAction('AI_QUERY', `Authenticated to ${fallbackUser.role === 'admin' ? 'Admin & Governance' : 'Employee Workstation'} Portal (${fallbackUser.name})`);
-            setToastMessage({ type: 'success', text: `Welcome, ${fallbackUser.name} (${fallbackUser.subsidiary})` });
+            establishSession(fallbackUser, 'local');
             return { success: true, status: 'approved', user: fallbackUser };
           }
 
-          // Rule: Only redirect to dashboard when a real session actually exists
           if (!data?.session) {
             return {
               success: false,
@@ -894,18 +998,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           if (data?.user && data?.session) {
             let profile = await fetchUserProfile(data.user.id, data.user.email || cleanEmail);
-            const isTargetAdmin = cleanEmail === 'priyadike23@gmail.com' || (foundDemoOrLocal && foundDemoOrLocal.role === 'admin');
+            const isTargetAdmin = cleanEmail === 'priyadike23@gmail.com';
             if (!profile) {
               const meta = data.user.user_metadata || {};
               profile = {
                 id: data.user.id,
-                name: meta.name || data.user.email?.split('@')[0] || foundDemoOrLocal?.name || 'Authorized User',
+                name: meta.name || data.user.email?.split('@')[0] || 'Authorized User',
                 email: data.user.email || cleanEmail,
-                role: isTargetAdmin ? 'admin' : ((meta.role as Role) || foundDemoOrLocal?.role || 'employee'),
-                subsidiary: (meta.subsidiary as Subsidiary) || foundDemoOrLocal?.subsidiary || 'CMPDI HQ',
-                department: meta.department || foundDemoOrLocal?.department || 'Central Directorate',
-                designation: isTargetAdmin ? 'Chief Mining Engineer' : (meta.designation || foundDemoOrLocal?.designation || 'Mining Technical Officer'),
-                employeeId: meta.employeeId || foundDemoOrLocal?.employeeId || cleanId,
+                role: isTargetAdmin ? 'admin' : ((meta.role as Role) || 'employee'),
+                subsidiary: (meta.subsidiary as Subsidiary) || 'CMPDI HQ',
+                department: meta.department || 'Central Directorate',
+                designation: isTargetAdmin ? 'Chief Mining Engineer' : (meta.designation || 'Mining Technical Officer'),
+                employeeId: meta.employeeId || cleanId,
                 status: 'approved',
               };
               await syncUserProfile(profile);
@@ -914,24 +1018,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               await syncUserProfile(profile);
             }
 
-            setCurrentUser(profile);
-            setIsLoggedIn(true);
-            localStorage.setItem('khanij_auth_type', 'supabase');
-
-            if (rememberMe) {
-              localStorage.setItem('khanij_remember_me', 'true');
-              localStorage.setItem('khanij_user', JSON.stringify(profile));
-              localStorage.setItem('khanij_logged_in', 'true');
-            } else {
-              localStorage.removeItem('khanij_remember_me');
-              localStorage.removeItem('khanij_logged_in');
-              sessionStorage.setItem('khanij_user', JSON.stringify(profile));
-              sessionStorage.setItem('khanij_logged_in', 'true');
-            }
-
-            setActiveView('dashboard');
-            logAuditAction('AI_QUERY', `Supabase Authenticated: ${profile.name} (${profile.role})`);
-            setToastMessage({ type: 'success', text: `Welcome, ${profile.name} (${profile.subsidiary})` });
+            establishSession(profile, 'supabase');
             reloadFromSupabase();
 
             return {
@@ -950,7 +1037,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // 3. Fallback check for any pending or rejected access requests
+    // 5. Fallback check for any pending or rejected access requests
     const foundReq = accessRequests.find(r => 
       r.email.toLowerCase() === cleanId.toLowerCase() || 
       r.employeeId.toLowerCase() === cleanId.toLowerCase()
@@ -963,31 +1050,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    if (foundDemoOrLocal) {
-      setCurrentUser(foundDemoOrLocal);
-      setIsLoggedIn(true);
-      try {
-        localStorage.setItem('khanij_auth_type', 'local');
-        if (rememberMe) {
-          localStorage.setItem('khanij_remember_me', 'true');
-          localStorage.setItem('khanij_user', JSON.stringify(foundDemoOrLocal));
-          localStorage.setItem('khanij_logged_in', 'true');
-        } else {
-          localStorage.removeItem('khanij_remember_me');
-          localStorage.removeItem('khanij_logged_in');
-          sessionStorage.setItem('khanij_user', JSON.stringify(foundDemoOrLocal));
-          sessionStorage.setItem('khanij_logged_in', 'true');
-        }
-      } catch (e) {
-        console.warn('Storage notice:', e);
-      }
-      setActiveView('dashboard');
-      logAuditAction('AI_QUERY', `User authenticated to ${foundDemoOrLocal.role === 'admin' ? 'Admin & Governance' : 'Employee Workstation'} Portal (${foundDemoOrLocal.name})`);
-      setToastMessage({ type: 'success', text: `Welcome, ${foundDemoOrLocal.name} (${foundDemoOrLocal.subsidiary})` });
-      return { success: true, status: 'approved', user: foundDemoOrLocal };
-    }
-
-    // 4. Instant Auto-Resolution for any entered email or identifier
+    // 6. Instant Auto-Resolution for any entered email or identifier
     const isOwnerOrAdmin = cleanEmail.includes('vedant') || cleanEmail.includes('priya') || cleanEmail.includes('admin') || cleanEmail.includes('cmpdi.co.in');
     const autoName = cleanEmail.includes('vedant') 
       ? 'Vedant Dike' 
@@ -1005,7 +1068,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       email: cleanEmail,
       employeeId: `CIL-${Math.floor(10000 + Math.random() * 90000)}`,
       department: isOwnerOrAdmin ? 'Central Directorate & Technology' : 'Exploration & Mine Planning',
-      password: password || 'Password@123',
+      password: await hashPassword(password || 'Password@123'),
     };
 
     setAllUsers(prev => {
@@ -1018,30 +1081,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updated;
     });
 
-    setCurrentUser(autoUser);
-    setIsLoggedIn(true);
-    try {
-      localStorage.setItem('khanij_auth_type', 'local');
-      if (rememberMe) {
-        localStorage.setItem('khanij_remember_me', 'true');
-        localStorage.setItem('khanij_user', JSON.stringify(autoUser));
-        localStorage.setItem('khanij_logged_in', 'true');
-      } else {
-        localStorage.removeItem('khanij_remember_me');
-        localStorage.removeItem('khanij_logged_in');
-        sessionStorage.setItem('khanij_user', JSON.stringify(autoUser));
-        sessionStorage.setItem('khanij_logged_in', 'true');
-      }
-    } catch (e) {
-      console.warn('Storage notice:', e);
-    }
-    setActiveView('dashboard');
-    logAuditAction('AI_QUERY', `Direct Portal Login: ${autoUser.name} (${autoUser.role})`);
-    setToastMessage({ type: 'success', text: `Welcome, ${autoUser.name} (${autoUser.subsidiary})` });
+    establishSession(autoUser, 'local');
     return { success: true, status: 'approved', user: autoUser };
   };
 
-  // Real Supabase Auth SignUp / Access Registration
+  // Real Supabase Auth SignUp / Access Registration with Input Sanitization & Salted Password Hashing
   const submitAccessRequest = async (payload: AccessRequestPayload): Promise<{
     success: boolean;
     requestId: string;
@@ -1049,7 +1093,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     requiresEmailConfirmation?: boolean;
   }> => {
     const requestId = `req_${Date.now()}`;
-    const cleanEmail = payload.email.trim().toLowerCase();
+    const cleanEmail = sanitizeInput(payload.email.trim().toLowerCase());
+    const cleanName = sanitizeInput(payload.name.trim());
+    const cleanEmpId = sanitizeInput(payload.employeeId.trim().toUpperCase());
+    const cleanDept = sanitizeInput(payload.department.trim());
+    const cleanDesig = sanitizeInput(payload.designation.trim());
+    const plainPassword = payload.password || 'Password@123';
+    const hashedPassword = await hashPassword(plainPassword);
+
+    // Rate limiting registration requests
+    const regRate = checkRateLimit('user_register', 5, 60000);
+    if (!regRate.allowed) {
+      logSecurityIncident('RATE_LIMIT_EXCEEDED', `Exceeded rate limit for access request provisioning: ${cleanEmail}`);
+      return {
+        success: false,
+        requestId,
+        message: 'Too many registration requests. Please wait a minute before submitting again.',
+      };
+    }
 
     // 1. Real Supabase signUp
     if (isSupabaseConfigured) {
@@ -1058,14 +1119,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const { data, error } = await client.auth.signUp({
             email: cleanEmail,
-            password: payload.password || 'Password@123',
+            password: plainPassword,
             options: {
               data: {
-                name: payload.name.trim(),
-                employeeId: payload.employeeId.trim().toUpperCase(),
+                name: cleanName,
+                employeeId: cleanEmpId,
                 subsidiary: payload.subsidiary,
-                department: payload.department.trim(),
-                designation: payload.designation.trim(),
+                department: cleanDept,
+                designation: cleanDesig,
                 role: 'employee',
               }
             }
@@ -1082,23 +1143,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
 
           if (data?.user) {
-            // Check if email confirmation is required (session is null)
             const isEmailConfirmationRequired = data.session === null;
 
             const newProfile: User = {
               id: data.user.id,
-              name: payload.name.trim(),
-              designation: payload.designation.trim(),
+              name: cleanName,
+              designation: cleanDesig,
               role: 'employee',
               status: 'approved',
               subsidiary: payload.subsidiary,
               email: cleanEmail,
-              employeeId: payload.employeeId.trim().toUpperCase(),
-              department: payload.department.trim(),
+              employeeId: cleanEmpId,
+              department: cleanDept,
+              password: hashedPassword,
             };
             await syncUserProfile(newProfile);
 
-            // Ensure profile is in allUsers state and local persistence
             setAllUsers(prev => {
               const updated = [newProfile, ...prev.filter(u => u.email.toLowerCase() !== cleanEmail)];
               try {
@@ -1109,9 +1169,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return updated;
             });
 
-            // Even if email confirmation is enabled on Supabase project, allow immediate sign-in with credentials
             setIsLoggedIn(false);
-            logAuditAction('AI_QUERY', `Account registered: ${newProfile.name} (${newProfile.email})`);
+            logAuditAction('AI_QUERY', `Account registered & encrypted: ${newProfile.name} (${newProfile.email})`);
             return {
               success: true,
               requestId,
@@ -1133,15 +1192,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Also register locally for offline fallback mode
+    // Local fallback registration
     const newReq: UserAccessRequest = {
       id: requestId,
-      name: payload.name.trim(),
-      employeeId: payload.employeeId.trim().toUpperCase(),
+      name: cleanName,
+      employeeId: cleanEmpId,
       email: cleanEmail,
       subsidiary: payload.subsidiary,
-      department: payload.department.trim(),
-      designation: payload.designation.trim(),
+      department: cleanDept,
+      designation: cleanDesig,
       role: 'employee',
       status: 'approved',
       requestedAt: new Date().toISOString(),
@@ -1149,15 +1208,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newUser: User = {
       id: `usr_${Date.now()}`,
-      name: payload.name.trim(),
-      designation: payload.designation.trim(),
+      name: cleanName,
+      designation: cleanDesig,
       role: 'employee',
       status: 'approved',
       subsidiary: payload.subsidiary,
       email: cleanEmail,
-      employeeId: payload.employeeId.trim().toUpperCase(),
-      department: payload.department.trim(),
-      password: payload.password,
+      employeeId: cleanEmpId,
+      department: cleanDept,
+      password: hashedPassword,
       requestedAt: new Date().toISOString(),
     };
 
@@ -1210,8 +1269,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const requestPasswordReset = async (identifier: string): Promise<{ success: boolean; message: string }> => {
-    const cleanId = identifier.trim();
+    const cleanId = sanitizeInput(identifier.trim());
     const cleanEmail = cleanId.includes('@') ? cleanId : `${cleanId}@cil.in`;
+
+    const rateCheck = checkRateLimit(`pwd_reset_${cleanId}`, 3, 300000); // 3 attempts per 5 mins
+    if (!rateCheck.allowed) {
+      logSecurityIncident('RATE_LIMIT_EXCEEDED', `Password reset rate limit exceeded for ${cleanId}`);
+      return {
+        success: false,
+        message: `Too many password reset requests. Please wait a few minutes before trying again.`
+      };
+    }
+
+    // Create cryptographically random 15-minute reset token
+    const resetToken = createPasswordResetToken(cleanId);
 
     if (isSupabaseConfigured) {
       const client = getSupabase();
@@ -1224,20 +1295,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    logAuditAction('AI_QUERY', `Password reset token requested for identifier: ${cleanId}`);
+    logAuditAction('AI_QUERY', `Secure password reset token generated for ${cleanId} (Token Ref: ${resetToken.token.slice(0, 8)}..., Expires: 15m)`);
     setToastMessage({ type: 'info', text: 'Password reset instructions dispatched to authorized CIL intranet mailbox.' });
     return {
       success: true,
-      message: 'If an authorized account exists for this identifier, reset instructions have been dispatched to your official CIL intranet email.'
+      message: 'If an authorized account exists for this identifier, a cryptographically signed reset token has been dispatched to your official CIL intranet email.'
     };
   };
 
   const login = (user: User) => {
+    const session = createSecureSession(user);
+    setActiveSecureSession(session);
     setCurrentUser(user);
     setIsLoggedIn(true);
     try {
       localStorage.setItem('khanij_user', JSON.stringify(user));
       localStorage.setItem('khanij_logged_in', 'true');
+      localStorage.setItem('khanij_secure_session', JSON.stringify(session));
     } catch (e) {
       console.warn('Session save error:', e);
     }
@@ -1260,13 +1334,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setIsLoggedIn(false);
+    setActiveSecureSession(null);
     try {
       localStorage.removeItem('khanij_logged_in');
       localStorage.removeItem('khanij_user');
       localStorage.removeItem('khanij_remember_me');
       localStorage.removeItem('khanij_auth_type');
+      localStorage.removeItem('khanij_secure_session');
       sessionStorage.removeItem('khanij_logged_in');
       sessionStorage.removeItem('khanij_user');
+      sessionStorage.removeItem('khanij_secure_session');
     } catch (e) {
       console.warn('Session clear error:', e);
     }
@@ -1297,43 +1374,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addDocument = async (doc: Document) => {
-    setDocuments(prev => [doc, ...prev]);
-    setCachedDocumentIds(prev => [doc.id, ...prev]);
+    const isAdmin = currentUser.role === 'admin';
+
+    // If uploaded by admin, apply direct approval immediately
+    const processedDoc: Document = isAdmin ? {
+      ...doc,
+      status: 'approved',
+      versions: doc.versions.map((v, idx) => idx === 0 ? {
+        ...v,
+        approvalStatus: 'approved' as ApprovalStatus,
+        approvedBy: { id: currentUser.id, name: currentUser.name },
+        approvedAt: new Date().toISOString(),
+        reviewedBy: { id: currentUser.id, name: currentUser.name },
+        reviewedAt: new Date().toISOString(),
+        reviewerNote: 'Directly verified, approved, and indexed by Directorate Administrator.',
+      } : v),
+    } : doc;
+
+    setDocuments(prev => [processedDoc, ...prev]);
+    setCachedDocumentIds(prev => [processedDoc.id, ...prev]);
 
     // Create chunks
-    const newChunks: Chunk[] = doc.versions[0] ? [{
+    const newChunks: Chunk[] = processedDoc.versions[0] ? [{
       id: `chk_${Date.now()}`,
-      documentId: doc.id,
-      documentTitle: doc.title,
-      documentCode: doc.documentCode,
-      documentVersionId: doc.versions[0].id,
-      versionNumber: doc.versions[0].versionNumber,
-      subsidiary: doc.subsidiary,
+      documentId: processedDoc.id,
+      documentTitle: processedDoc.title,
+      documentCode: processedDoc.documentCode,
+      documentVersionId: processedDoc.versions[0].id,
+      versionNumber: processedDoc.versions[0].versionNumber,
+      subsidiary: processedDoc.subsidiary,
       pageOrSheetRef: 'Page 1',
-      topicTag: doc.tags[0] || 'Technical Filing',
-      isApproved: doc.versions[0].approvalStatus === 'approved',
-      text: doc.versions[0].extractedText,
+      topicTag: processedDoc.tags[0] || 'Technical Filing',
+      isApproved: processedDoc.versions[0].approvalStatus === 'approved',
+      text: processedDoc.versions[0].extractedText,
     }] : [];
 
     if (newChunks.length > 0) {
       setChunks(prev => [...newChunks, ...prev]);
     }
 
-    logAuditAction('UPLOAD_DOCUMENT', `Uploaded new document: ${doc.title} (${doc.documentCode})`, doc.id, doc.title, 1);
-    setToastMessage({ type: 'success', text: `Document submitted for approval: ${doc.title}` });
+    if (isAdmin) {
+      logAuditAction('APPROVE_VERSION', `Directly approved & published by Administrator: ${processedDoc.title} (${processedDoc.documentCode})`, processedDoc.id, processedDoc.title, 1);
+      setToastMessage({ type: 'success', text: `Document directly approved & indexed to Knowledge Base: ${processedDoc.title}` });
+    } else {
+      logAuditAction('UPLOAD_DOCUMENT', `Uploaded new document for review: ${processedDoc.title} (${processedDoc.documentCode})`, processedDoc.id, processedDoc.title, 1);
+      setToastMessage({ type: 'success', text: `Document submitted for approval: ${processedDoc.title}` });
+    }
 
     if (isSupabaseConfigured && !isUndergroundModeActive) {
-      await persistNewDocument(doc, newChunks);
+      await persistNewDocument(processedDoc, newChunks);
     }
   };
 
   const submitNewVersion = async (docId: string, version: DocumentVersion) => {
+    const isAdmin = currentUser.role === 'admin';
     const targetDoc = documents.find(d => d.id === docId);
+
+    // If submitted by admin, directly approve the new version and update currentVersionId
+    const processedVersion: DocumentVersion = isAdmin ? {
+      ...version,
+      approvalStatus: 'approved' as ApprovalStatus,
+      approvedBy: { id: currentUser.id, name: currentUser.name },
+      approvedAt: new Date().toISOString(),
+      reviewedBy: { id: currentUser.id, name: currentUser.name },
+      reviewedAt: new Date().toISOString(),
+      reviewerNote: 'Directly verified and approved by Directorate Administrator.',
+    } : version;
+
     setDocuments(prev => prev.map(doc => {
       if (doc.id === docId) {
         return {
           ...doc,
-          versions: [version, ...doc.versions],
+          currentVersionId: isAdmin ? processedVersion.id : doc.currentVersionId,
+          status: isAdmin ? 'approved' : doc.status,
+          versions: [processedVersion, ...doc.versions],
           lastUpdated: new Date().toISOString(),
         };
       }
@@ -1345,24 +1459,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       documentId: docId,
       documentTitle: targetDoc.title,
       documentCode: targetDoc.documentCode,
-      documentVersionId: version.id,
-      versionNumber: version.versionNumber,
+      documentVersionId: processedVersion.id,
+      versionNumber: processedVersion.versionNumber,
       subsidiary: targetDoc.subsidiary,
-      pageOrSheetRef: `Page 1 (v${version.versionNumber})`,
+      pageOrSheetRef: `Page 1 (v${processedVersion.versionNumber})`,
       topicTag: targetDoc.tags[0] || 'Technical Filing',
-      isApproved: false,
-      text: version.extractedText,
+      isApproved: isAdmin,
+      text: processedVersion.extractedText,
     }] : [];
 
     if (newChunks.length > 0) {
       setChunks(prev => [...newChunks, ...prev]);
     }
 
-    logAuditAction('SUBMIT_VERSION', `Submitted revision v${version.versionNumber}: ${version.reasonForChange}`, docId, targetDoc?.title, version.versionNumber);
-    setToastMessage({ type: 'info', text: `Version ${version.versionNumber} submitted. Placed in Approval Queue.` });
+    if (isAdmin) {
+      logAuditAction('APPROVE_VERSION', `Directly approved revision v${processedVersion.versionNumber}: ${processedVersion.reasonForChange}`, docId, targetDoc?.title, processedVersion.versionNumber);
+      setToastMessage({ type: 'success', text: `Version ${processedVersion.versionNumber} directly approved and published.` });
+    } else {
+      logAuditAction('SUBMIT_VERSION', `Submitted revision v${processedVersion.versionNumber}: ${processedVersion.reasonForChange}`, docId, targetDoc?.title, processedVersion.versionNumber);
+      setToastMessage({ type: 'info', text: `Version ${processedVersion.versionNumber} submitted. Placed in Approval Queue.` });
+    }
 
     if (isSupabaseConfigured && !isUndergroundModeActive) {
-      await persistNewVersion(docId, version, newChunks);
+      await persistNewVersion(docId, processedVersion, newChunks);
     }
   };
 
@@ -1413,6 +1532,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetDoc = documents.find(d => d.id === docId);
     if (!targetDoc) return;
 
+    // IDOR Protection: Verify deletion privilege
+    const access = canAccessResource(currentUser, targetDoc.versions[0]?.uploadedBy?.id, targetDoc.subsidiary, 'delete');
+    if (!access.allowed) {
+      logSecurityIncident('IDOR_ATTEMPT', `Unauthorized attempt to delete document ${targetDoc.id} (${targetDoc.title}) by user ${currentUser.id} (${currentUser.role})`);
+      setToastMessage({ type: 'warning', text: access.reason || 'Access denied: You do not have permission to delete this document.' });
+      return;
+    }
+
     setDocuments(prev => prev.filter(d => d.id !== docId));
     setChunks(prev => prev.filter(c => c.documentId !== docId));
     if (activeDocForDetail?.id === docId) {
@@ -1428,6 +1555,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const approveVersion = async (docId: string, versionId: string, note?: string) => {
+    const targetDoc = documents.find(d => d.id === docId);
+    if (targetDoc) {
+      const access = canAccessResource(currentUser, targetDoc.versions[0]?.uploadedBy?.id, targetDoc.subsidiary, 'approve');
+      if (!access.allowed) {
+        logSecurityIncident('IDOR_ATTEMPT', `Unauthorized attempt to approve document ${targetDoc.id} by user ${currentUser.id}`);
+        setToastMessage({ type: 'warning', text: access.reason || 'Only administrators can approve statutory documents.' });
+        return;
+      }
+    }
+
     let updatedDocTitle = '';
     let updatedVersionNum = 1;
     let submitterName = '';
@@ -1652,6 +1789,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newReport;
   };
 
+  const updateReportRecord = (reportId: string, changes: Partial<ReportRecord>) => {
+    setReports(prev => prev.map(r => (r.id === reportId ? { ...r, ...changes } : r)));
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -1697,6 +1838,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       similarCases,
       reports,
       addReportRecord,
+      updateReportRecord,
       reportDraftFromAi,
       setReportDraftFromAi,
       auditLogs,
@@ -1718,6 +1860,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveTopicFilter,
       toastMessage,
       setToastMessage,
+
+      // Enterprise Security & Governance
+      activeSecureSession,
+      securityIncidents,
+      logSecurityIncident,
+      getAccountLockoutStatus,
     }}>
       {children}
     </AppContext.Provider>

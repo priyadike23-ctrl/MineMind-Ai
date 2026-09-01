@@ -213,20 +213,21 @@ The **Cloud & Drive Workspace Hub** bridges statutory reporting with enterprise 
 
 ## 10. Security, Role-Based Governance & Audit Trail
 
-### Q15: How does the Dual-Role Access Control work?
+### Q15: How does the Dual-Role Access Control and Document Approval logic work?
 **Answer:**  
-- **Mining Engineer / Contributor**:
-  - Can browse approved documents in the Knowledge Center.
-  - Can upload new filings, paste screenshots (`Ctrl+V`), and run local compliance checks.
-  - Can query the AI Assistant (online or underground offline).
-  - Can monitor the status of their own submitted filings.
-  - *Cannot* approve filings or modify the audit ledger.
-- **Executive Admin / Directorate**:
-  - Full access to the Executive Governance Dashboard.
-  - Access to the Central Approval Queue with AI Priority Triage (Urgent, Standard, Routine).
-  - Authority to Approve, Request Revisions, or Reject submissions.
-  - Can perform Bulk One-Click Approvals for routine low-risk filings.
-  - Full access to the immutable compliance audit log.
+- **Mining Engineer / Contributor Flow**:
+  - Uploads filings, technical strata logs, and revision amendments.
+  - Documents and revisions default to **`approvalStatus: 'pending'`** and are placed in the Directorate Approval Queue.
+  - Engineers receive a tracking status receipt in their "My Updates" dashboard.
+  - Cannot approve filings or modify the audit ledger.
+- **Executive Admin / Directorate Direct Approval Flow**:
+  - Full authority over governance policies and approval queues.
+  - When an **Administrator** uploads a new document or revision, the system applies **Direct Approval** (`approvalStatus: 'approved'`):
+    - Automatically attaches the administrator's digital approval stamp (`approvedBy`, `approvedAt`, `reviewedBy`).
+    - Immediately indexes the vector chunks as approved knowledge (`isApproved: true`) so they are instantly searchable in the Knowledge Center and AI Assistant without requiring self-review in the queue.
+    - Emits an append-only audit event: `"Directly approved & published by Administrator"`.
+- **Review & Bulk Actions**:
+  - Administrators review pending employee submissions with side-by-side version diffing, compliance scoring, and one-click bulk approvals.
 
 ### Q16: How is the audit trail secured against tampering?
 **Answer:**  
