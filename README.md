@@ -207,6 +207,7 @@ This builds the application into the `dist/` folder ready for static hosting or 
 
 ## 📚 Comprehensive Documentation Index
 
+* 🛠️ **[Complete Technical Stack & Deep Dive](./TECH_STACK.md)**: Full breakdown of all 14+ technologies, why they were chosen, internal mechanics, and operational importance.
 * 🎓 **[Master Viva Questions & Answers Guide](./VIVA_QUESTIONS_AND_ANSWERS.md)**: 18+ in-depth viva questions, 30-second pitches, architecture breakdown, AI/RAG mechanics, and rapid-fire cheat sheet.
 * 📈 **[Impact Metrics & Mathematical Data Lineage](./IMPACT_METRICS_DATA_LINEAGE.md)**: Deep mathematical formulations, variables ($T_{\text{baseline}}$, OCR Confidence, Clean Approvals), live data pipelines, and audit reproducibility protocol.
 * 🏛️ **[System Architecture & Workflow Specification](./SYSTEM_ARCHITECTURE_WORKFLOW.md)**: 6-tier architecture diagrams, data pipelines, and offline edge sync mechanics.
