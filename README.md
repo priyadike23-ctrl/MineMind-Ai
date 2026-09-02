@@ -207,6 +207,8 @@ This builds the application into the `dist/` folder ready for static hosting or 
 
 ## 📚 Comprehensive Documentation Index
 
+* ⚡ **[Complete Automations & Intelligent Workflows](./AUTOMATIONS.md)**: Exhaustive breakdown of all 10 automation engines (Multi-Modal OCR, Statutory Pre-Screening, Merkle Ledger, RAG Citations, Contradiction Detection, Form IV Compilation, Offline Pit Cache, Voice Engine, RBAC Triage).
+* 🎙️ **[Master Viva Speech & Team Roles Pitching Guide](./TEAM_ROLES_AND_PITCH_GUIDE.md)**: Word-for-word viva presentation scripts, 5-role team contribution breakdown, architecture defense, and examiner Q&A cheat sheet.
 * 🛠️ **[Technology Stack Specification](./TECH_STACK.md)**: Detailed breakdown of frontend, backend, AI/RAG engine, data visualizers, security mechanisms, and dependency manifest.
 * 🎓 **[Master Viva Questions & Answers Guide](./VIVA_QUESTIONS_AND_ANSWERS.md)**: 18+ in-depth viva questions, 30-second pitches, architecture breakdown, AI/RAG mechanics, and rapid-fire cheat sheet.
 * 📈 **[Impact Metrics & Mathematical Data Lineage](./IMPACT_METRICS_DATA_LINEAGE.md)**: Deep mathematical formulations, variables ($T_{\text{baseline}}$, OCR Confidence, Clean Approvals), live data pipelines, and audit reproducibility protocol.
