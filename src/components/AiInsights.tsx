@@ -75,6 +75,18 @@ export const AiInsights: React.FC = () => {
     }
   };
 
+  // Color palette for each technical cluster (high contrast on both light & dark modes)
+  const CLUSTER_COLORS = [
+    '#F59E0B', // Amber Gold (Geological Reserves)
+    '#3B82F6', // Electric Blue (Slope Stability)
+    '#EF4444', // Crimson Flame (Subsurface Fire)
+    '#10B981', // Emerald Green (HEMM Diesel & Fleet)
+    '#8B5CF6', // Purple (DGMS Ventilation)
+    '#06B6D4', // Cyan (Washery Yield)
+    '#EC4899', // Pink (Inundation Barrier)
+    '#14B8A6', // Teal (Environmental Clearance)
+  ];
+
   // Prepare data for Topic Coverage Bar Chart
   const coverageData = topicInsights.map((t) => ({
     topic: t.topic.length > 18 ? `${t.topic.slice(0, 16)}…` : t.topic,
@@ -142,7 +154,7 @@ export const AiInsights: React.FC = () => {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
               data={coverageData} 
-              margin={{ top: 10, right: 20, left: 0, bottom: 25 }}
+              margin={{ top: 10, right: 20, left: 0, bottom: 35 }}
               onClick={(data: any) => {
                 if (data && data.activePayload && data.activePayload[0]) {
                   const topic = data.activePayload[0].payload.fullTopic;
@@ -150,18 +162,22 @@ export const AiInsights: React.FC = () => {
                 }
               }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#E4E0D6" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#475569" strokeOpacity={0.3} vertical={false} />
               <XAxis 
                 dataKey="topic" 
                 stroke="#64748B" 
-                fontSize={10} 
-                fontFamily="monospace" 
+                tick={{ fill: '#94A3B8', fontSize: 10, fontFamily: 'monospace' }} 
                 tickLine={false}
                 angle={-25}
                 textAnchor="end"
                 interval={0}
               />
-              <YAxis stroke="#64748B" fontSize={11} fontFamily="monospace" tickLine={false} axisLine={false} />
+              <YAxis 
+                stroke="#64748B" 
+                tick={{ fill: '#94A3B8', fontSize: 11, fontFamily: 'monospace' }} 
+                tickLine={false} 
+                axisLine={false} 
+              />
               <Tooltip 
                 allowEscapeViewBox={{ x: true, y: true }}
                 wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
@@ -170,7 +186,7 @@ export const AiInsights: React.FC = () => {
                     const d = payload[0].payload;
                     return (
                       <div className="bg-[#141C2B] text-white p-3 rounded-lg shadow-xl border border-[#334155] text-xs font-mono z-50 pointer-events-none">
-                        <div className="font-bold text-[#C8892E] mb-1">{d.fullTopic}</div>
+                        <div className="font-bold text-[#F59E0B] mb-1">{d.fullTopic}</div>
                         <div className="text-[#E2E8F0]">Occurrences: <span className="font-bold text-white">{d.occurrences}</span> references</div>
                         <div className="text-[#94A3B8]">Extraction Confidence: <span className="font-bold text-[#22C55E]">{d.confidence}%</span></div>
                         <div className="text-[10px] text-[#94A3B8] mt-1.5 pt-1.5 border-t border-[#334155]">Click bar to filter Knowledge Center</div>
@@ -180,9 +196,12 @@ export const AiInsights: React.FC = () => {
                   return null;
                 }}
               />
-              <Bar dataKey="occurrences" fill="#C8892E" radius={[4, 4, 0, 0]} className="cursor-pointer hover:opacity-85">
+              <Bar dataKey="occurrences" radius={[5, 5, 0, 0]} className="cursor-pointer hover:opacity-90 transition-opacity">
                 {coverageData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#C8892E' : '#141C2B'} />
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={CLUSTER_COLORS[index % CLUSTER_COLORS.length]} 
+                  />
                 ))}
               </Bar>
             </BarChart>
@@ -202,9 +221,9 @@ export const AiInsights: React.FC = () => {
         <div className="flex flex-wrap gap-2.5 items-center justify-center p-6 bg-[#FAF8F3] rounded-xl border border-[#E4E0D6] min-h-[180px]">
           {topicInsights.map((t, idx) => {
             const scaleClasses = [
-              'text-base font-bold bg-[#141C2B] text-[#C8892E] px-3 py-1.5 shadow-xs',
-              'text-sm font-bold bg-white text-[#141C2B] border border-[#C8892E] px-2.5 py-1',
-              'text-xs font-semibold bg-[#EFEBE2] text-[#141C2B] px-2.5 py-1',
+              'text-base font-bold bg-[#141C2B] text-[#F59E0B] border border-[#F59E0B]/50 px-3.5 py-1.5 shadow-xs',
+              'text-sm font-bold bg-white text-[#141C2B] border border-[#C8892E] px-3 py-1',
+              'text-xs font-semibold bg-[#EFEBE2] text-[#141C2B] border border-[#CBD5E1] px-2.5 py-1',
               'text-xs font-medium bg-white text-[#475569] border border-[#E4E0D6] px-2 py-0.5',
             ];
             const styleClass = scaleClasses[Math.min(idx, 3)];
@@ -252,9 +271,19 @@ export const AiInsights: React.FC = () => {
         <div className="h-80 w-full min-h-[300px] pt-2 relative z-10 overflow-visible">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={topicTrends} margin={{ top: 15, right: 30, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E4E0D6" vertical={false} />
-              <XAxis dataKey="month" stroke="#64748B" fontSize={11} fontFamily="monospace" tickLine={false} />
-              <YAxis stroke="#64748B" fontSize={11} fontFamily="monospace" tickLine={false} axisLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#475569" strokeOpacity={0.3} vertical={false} />
+              <XAxis 
+                dataKey="month" 
+                stroke="#64748B" 
+                tick={{ fill: '#94A3B8', fontSize: 11, fontFamily: 'monospace' }} 
+                tickLine={false} 
+              />
+              <YAxis 
+                stroke="#64748B" 
+                tick={{ fill: '#94A3B8', fontSize: 11, fontFamily: 'monospace' }} 
+                tickLine={false} 
+                axisLine={false} 
+              />
               <Tooltip 
                 allowEscapeViewBox={{ x: true, y: true }}
                 wrapperStyle={{ zIndex: 100 }}
@@ -273,10 +302,10 @@ export const AiInsights: React.FC = () => {
                 height={36}
                 wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace', paddingTop: '16px' }} 
               />
-              <Line type="monotone" dataKey="boreholeData" name="Borehole Data" stroke="#C8892E" strokeWidth={3} dot={{ r: 4, fill: '#C8892E' }} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="slopeStability" name="Slope Stability" stroke="#2563EB" strokeWidth={2.5} dot={{ r: 3.5, fill: '#2563EB' }} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="groundwater" name="Groundwater Seepage" stroke="#16A34A" strokeWidth={2.5} dot={{ r: 3.5, fill: '#16A34A' }} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="dgmsCompliance" name="DGMS Compliance" stroke="#9333EA" strokeWidth={2.5} dot={{ r: 3.5, fill: '#9333EA' }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="boreholeData" name="Borehole Data" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4, fill: '#F59E0B' }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="slopeStability" name="Slope Stability" stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 3.5, fill: '#3B82F6' }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="groundwater" name="Groundwater Seepage" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3.5, fill: '#10B981' }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="dgmsCompliance" name="DGMS Compliance" stroke="#A855F7" strokeWidth={2.5} dot={{ r: 3.5, fill: '#A855F7' }} activeDot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>

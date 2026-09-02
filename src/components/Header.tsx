@@ -63,7 +63,7 @@ export const Header: React.FC = () => {
   const sizeMb = ((offlineStorageSizeBytes || 0) / (1024 * 1024)).toFixed(1);
 
   return (
-    <header id="minemind-header" className="bg-[#FFFFFF] border-b border-[#E4E0D6] px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shadow-xs sticky top-0 z-20">
+    <header id="minemind-header" className="bg-white border-b border-[#E4E0D6] px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shadow-xs sticky top-0 z-20 transition-colors">
       {/* Mobile Hamburger & View Title */}
       <div className="flex items-center gap-2.5 min-w-0 pr-2">
         <button
@@ -74,7 +74,7 @@ export const Header: React.FC = () => {
           title="Open Navigation Menu"
           aria-label="Open Navigation Menu"
         >
-          <Menu className="w-5 h-5 text-[#141C2B]" />
+          <Menu className="w-5 h-5 text-current" />
         </button>
 
         <div className="min-w-0">

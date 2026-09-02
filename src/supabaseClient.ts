@@ -31,15 +31,28 @@ function sanitizeSupabaseUrl(url: string): string {
 const sanitizedSupabaseUrl: string = sanitizeSupabaseUrl(rawSupabaseUrl);
 const sanitizedSupabaseKey: string = String(rawSupabaseKey || '').trim().replace(/^["']|["']$/g, '');
 
-export const isSupabaseConfigured = Boolean(
+function isValidHttpUrl(urlString: string): boolean {
+  if (!urlString || typeof urlString !== 'string') return false;
+  try {
+    const parsed = new URL(urlString);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+export const isSupabaseConfigured: boolean = Boolean(
   sanitizedSupabaseUrl && 
   sanitizedSupabaseKey && 
+  isValidHttpUrl(sanitizedSupabaseUrl) &&
   !sanitizedSupabaseUrl.includes('placeholder') &&
-  !sanitizedSupabaseKey.includes('placeholder')
+  !sanitizedSupabaseKey.includes('placeholder') &&
+  sanitizedSupabaseUrl !== 'https://your-project-id.supabase.co' &&
+  sanitizedSupabaseKey !== 'your-anon-key'
 );
 
 // Diagnostic logging on module load
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && isSupabaseConfigured) {
   const maskedKey = sanitizedSupabaseKey 
     ? `${sanitizedSupabaseKey.slice(0, 4)}...${sanitizedSupabaseKey.slice(-4)}`
     : 'EMPTY/UNDEFINED';
@@ -57,14 +70,14 @@ if (typeof window !== 'undefined') {
 let supabaseInstance: SupabaseClient | null = null;
 
 export function getSupabase(): SupabaseClient | null {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured || !isValidHttpUrl(sanitizedSupabaseUrl)) {
     return null;
   }
   if (!supabaseInstance) {
     try {
       const maskedKey = `${sanitizedSupabaseKey.slice(0, 4)}...${sanitizedSupabaseKey.slice(-4)}`;
       console.log(
-        `[Supabase] Calling createClient(url, key, options) -> URL: "${sanitizedSupabaseUrl}", Key Type: ${typeof sanitizedSupabaseKey}, Key Length: ${sanitizedSupabaseKey.length}, Key: ${maskedKey}`
+        `[Supabase] Calling createClient -> URL: "${sanitizedSupabaseUrl}", Key: ${maskedKey}`
       );
 
       // Verify key is a valid non-empty string in position 2
@@ -81,9 +94,9 @@ export function getSupabase(): SupabaseClient | null {
         },
       });
 
-      console.log('[Supabase] Client instance successfully constructed with explicit apikey header.');
+      console.log('[Supabase] Client instance successfully initialized.');
     } catch (err) {
-      console.error('[Supabase] Failed to initialize Supabase client:', err);
+      console.warn('[Supabase] Client initialization bypassed. Running in offline/local state.');
       return null;
     }
   }

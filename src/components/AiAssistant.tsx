@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { useSessionState } from '../utils/usePersistentState';
 import { Chunk, SourceCitation, QueryRecord } from '../types';
 import { queryOfflineKnowledgeBase } from '../utils/offlineRAG';
 import { sounds } from '../utils/soundEffects';
@@ -34,7 +33,15 @@ import {
   Radio,
   Square,
   Globe,
-  X
+  X,
+  RefreshCw,
+  Keyboard,
+  Lock,
+  ShieldAlert,
+  Play,
+  MessageSquare,
+  Zap,
+  HelpCircle as HelpIcon
 } from 'lucide-react';
 
 const SUBSIDIARY_PRESETS: Record<string, string[]> = {
@@ -84,7 +91,7 @@ export const AiAssistant: React.FC = () => {
     cachedDocumentIds
   } = useApp();
 
-  const [question, setQuestion] = useSessionState<string>('ai_assistant_question', '');
+  const [question, setQuestion] = useState<string>('');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [isOfflineResult, setIsOfflineResult] = useState<boolean>(false);
   const [activeResult, setActiveResult] = useState<{
@@ -96,6 +103,7 @@ export const AiAssistant: React.FC = () => {
     draftOfficialReply?: string;
   } | null>(null);
 
+  const [showSimilarCases, setShowSimilarCases] = useState<boolean>(true);
   const [showDraftReply, setShowDraftReply] = useState<boolean>(false);
   const [copiedAnswer, setCopiedAnswer] = useState<boolean>(false);
   const [copiedDraft, setCopiedDraft] = useState<boolean>(false);
@@ -108,13 +116,125 @@ export const AiAssistant: React.FC = () => {
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [autoSpeakAnswer, setAutoSpeakAnswer] = useState<boolean>(false);
   const [speechStatusText, setSpeechStatusText] = useState<string>('');
-  const [showVoiceAssistModal, setShowVoiceAssistModal] = useState<boolean>(false);
-  const [simulatedListening, setSimulatedListening] = useState<boolean>(false);
-  const recognitionRef = useRef<any>(null);
+  const [speechLang, setSpeechLang] = useState<string>('en-IN');
+  const [micVolumeLevel, setMicVolumeLevel] = useState<number>(0);
+  const [interimSpokenText, setInterimSpokenText] = useState<string>('');
 
-  // Stop recognition on unmount
+  // Microphone Permissions & Security Context States
+  const [permissionState, setPermissionState] = useState<PermissionState | 'unknown'>('prompt');
+  const [isSecureEnv, setIsSecureEnv] = useState<boolean>(true);
+  const [permissionErrorType, setPermissionErrorType] = useState<'denied' | 'insecure_http' | 'unsupported' | null>(null);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const isListeningRef = useRef<boolean>(false);
+  const silenceTimerRef = useRef<any>(null);
+  const baseTranscriptRef = useRef<string>('');
+
+  // 1. Proactively check secure context & browser mic permission state on mount
+  useEffect(() => {
+    // Confirm if the application is running in a secure context (HTTPS or localhost)
+    const isSecure = typeof window !== 'undefined' && (
+      window.isSecureContext ?? (
+        window.location.protocol === 'https:' ||
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1'
+      )
+    );
+    setIsSecureEnv(isSecure);
+
+    // Check Permissions API proactively
+    if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+      try {
+        navigator.permissions.query({ name: 'microphone' as PermissionName })
+          .then((permissionStatus) => {
+            const currentState = permissionStatus.state;
+            setPermissionState(currentState);
+
+            permissionStatus.onchange = () => {
+              const updated = permissionStatus.state;
+              setPermissionState(updated);
+              if (updated === 'granted') {
+                setPermissionErrorType(null);
+              }
+            };
+          })
+          .catch(() => {
+            // Permissions API might throw on some browsers or iframe environments
+          });
+      } catch (e) {
+        // quiet fail
+      }
+    }
+  }, []);
+
+  // Stop real-time audio visualization
+  const stopAudioLevelMeter = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close();
+      } catch {}
+      audioContextRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    setMicVolumeLevel(0);
+  };
+
+  // Start real-time audio visualization from user's live microphone
+  const startAudioLevelMeter = (stream: MediaStream) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const audioCtx = new AudioCtx();
+      audioContextRef.current = audioCtx;
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      const updateVolume = () => {
+        if (!isListeningRef.current) {
+          stopAudioLevelMeter();
+          return;
+        }
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / dataArray.length;
+        const normalized = Math.min(100, Math.round((average / 128) * 100));
+        setMicVolumeLevel(normalized);
+        animationFrameRef.current = requestAnimationFrame(updateVolume);
+      };
+
+      updateVolume();
+    } catch (e) {
+      console.warn('Audio visualization initialisation error:', e);
+    }
+  };
+
+  // Clean up recognition and timers on unmount
   useEffect(() => {
     return () => {
+      isListeningRef.current = false;
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+      stopAudioLevelMeter();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -126,20 +246,34 @@ export const AiAssistant: React.FC = () => {
     };
   }, []);
 
-  const startLiveSpeechRecognition = () => {
+  const resetSilenceTimer = (recognizer: any) => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+    // Automatically stop after 6 seconds of silence to finalize
+    silenceTimerRef.current = setTimeout(() => {
+      if (isListeningRef.current) {
+        setSpeechStatusText('Voice query captured. Click Ask to submit or speak more.');
+        try {
+          recognizer.stop();
+        } catch {}
+      }
+    }, 6000);
+  };
+
+  const startLiveSpeechRecognition = async () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      sounds.playAlert();
-      setShowVoiceAssistModal(true);
       setToastMessage({
-        type: 'info',
-        text: 'Native SpeechRecognition is unavailable in this environment. Opened Voice Dictation Assistant.'
+        type: 'warning',
+        text: 'Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari, or type your query.'
       });
+      setSpeechStatusText('Web Speech API not supported in this browser. Please type inquiry.');
       return;
     }
 
-    // Stop any existing session before initiating fresh instance
+    // Stop any existing recognition session
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
@@ -147,104 +281,170 @@ export const AiAssistant: React.FC = () => {
       recognitionRef.current = null;
     }
 
+    // Try to get audio stream for mic permission & real-time visual level meter
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        startAudioLevelMeter(stream);
+        setPermissionState('granted');
+        setPermissionErrorType(null);
+      }
+    } catch (err: any) {
+      console.warn('Microphone permission request status:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setPermissionState('denied');
+        setPermissionErrorType('denied');
+        setToastMessage({
+          type: 'warning',
+          text: 'Microphone access was denied. Please allow microphone permission in your browser address bar to dictate with your voice.'
+        });
+        setSpeechStatusText('Microphone permission denied. Allow mic in browser settings.');
+        return;
+      }
+    }
+
     try {
       const recognizer = new SpeechRecognition();
-      recognizer.continuous = false;
+      recognizer.continuous = true;
       recognizer.interimResults = true;
       recognizer.maxAlternatives = 1;
-      recognizer.lang = 'en-IN'; // Optimized for Indian mining & technical terms
+      recognizer.lang = speechLang;
+
+      baseTranscriptRef.current = question ? question.trim() + ' ' : '';
+      setInterimSpokenText('');
 
       recognizer.onstart = () => {
+        isListeningRef.current = true;
         setIsListening(true);
         sounds.playDispatch();
-        setSpeechStatusText('Microphone active. Speak your mining technical query now...');
+        setSpeechStatusText('Microphone active. Speak your mining technical question...');
+        resetSilenceTimer(recognizer);
       };
 
       recognizer.onresult = (event: any) => {
         let interimTranscript = '';
-        let finalTranscript = '';
+        let currentFinal = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
+            currentFinal += event.results[i][0].transcript + ' ';
           } else {
             interimTranscript += event.results[i][0].transcript;
           }
         }
 
-        const currentText = (finalTranscript || interimTranscript).trim();
-        if (currentText) {
-          setQuestion(currentText);
-          setSpeechStatusText(`Captured: "${currentText}"`);
+        if (currentFinal) {
+          baseTranscriptRef.current += currentFinal;
+        }
+
+        const combinedText = (baseTranscriptRef.current + interimTranscript).replace(/\s+/g, ' ').trim();
+        setInterimSpokenText(interimTranscript);
+        
+        if (combinedText) {
+          setQuestion(combinedText);
+          setSpeechStatusText(`Listening: "${combinedText.slice(-45)}"`);
+          resetSilenceTimer(recognizer);
         }
       };
 
       recognizer.onerror = (event: any) => {
-        console.warn('Speech recognition notice:', event.error);
-        setIsListening(false);
-        recognitionRef.current = null;
+        console.warn('Speech recognition status:', event.error);
 
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setSpeechStatusText('Microphone access not granted. Use Voice Assistant modal below.');
-          setShowVoiceAssistModal(true);
+          setPermissionState('denied');
+          setPermissionErrorType('denied');
+          setIsListening(false);
+          isListeningRef.current = false;
+          stopAudioLevelMeter();
           setToastMessage({
             type: 'warning',
-            text: 'Microphone permission was blocked. Opened Voice Dictation Assistant.'
+            text: 'Microphone access denied. Please allow microphone permissions in your browser.'
           });
+          setSpeechStatusText('Microphone access blocked.');
         } else if (event.error === 'no-speech') {
-          setSpeechStatusText('No speech detected. Click mic to speak again.');
+          setSpeechStatusText('Listening... Speak anytime into your microphone.');
+        } else if (event.error === 'network') {
+          setSpeechStatusText('Speech service network notice. Retrying voice recognition...');
         } else {
-          setSpeechStatusText(`Voice note: ${event.error}. Click mic to retry.`);
+          setSpeechStatusText(`Voice input: ${event.error}`);
         }
       };
 
       recognizer.onend = () => {
+        isListeningRef.current = false;
         setIsListening(false);
         recognitionRef.current = null;
+        setInterimSpokenText('');
+        stopAudioLevelMeter();
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
         sounds.playSuccess();
+        setSpeechStatusText('Voice captured. Ready to Ask!');
       };
 
       recognitionRef.current = recognizer;
+      isListeningRef.current = true;
       recognizer.start();
-    } catch (err) {
-      console.warn('SpeechRecognition initialization error:', err);
+    } catch (err: any) {
+      console.warn('SpeechRecognition launch note:', err);
       setIsListening(false);
-      recognitionRef.current = null;
-      setShowVoiceAssistModal(true);
+      isListeningRef.current = false;
+      stopAudioLevelMeter();
+      setToastMessage({
+        type: 'warning',
+        text: 'Could not initialize speech recognition. Please ensure microphone permissions are granted.'
+      });
+      setSpeechStatusText('Voice recognition unavailable.');
     }
   };
 
-  const toggleVoiceInput = () => {
-    // Stop reading answer if currently playing
+  const toggleVoiceInput = async () => {
+    // Stop reading answer aloud if currently playing
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
     }
 
-    if (isListening) {
+    // 1. If currently listening, stop immediately and keep whatever user spoke
+    if (isListening || isListeningRef.current) {
+      isListeningRef.current = false;
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
         } catch {}
         recognitionRef.current = null;
       }
+      stopAudioLevelMeter();
       setIsListening(false);
-      setSpeechStatusText('');
+      setInterimSpokenText('');
+      setSpeechStatusText('Voice recording stopped. Text captured.');
       sounds.playClick();
-    } else {
-      startLiveSpeechRecognition();
+      return;
     }
+
+    // 2. Start live speech recognition with user's own microphone
+    startLiveSpeechRecognition();
   };
 
-  const handleSelectSpokenPrompt = (promptText: string) => {
-    setQuestion(promptText);
-    setShowVoiceAssistModal(false);
-    sounds.playSuccess();
-    setToastMessage({
-      type: 'success',
-      text: `Applied spoken inquiry: "${promptText.slice(0, 45)}..."`
-    });
-  };
+  // Keyboard shortcut (Ctrl+Space / Cmd+Space) to trigger Voice listening mode
+  useEffect(() => {
+    const handleVoiceShortcut = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.code === 'Space' || e.key === ' ')) {
+        e.preventDefault();
+        toggleVoiceInput();
+      }
+    };
+
+    window.addEventListener('keydown', handleVoiceShortcut);
+    return () => {
+      window.removeEventListener('keydown', handleVoiceShortcut);
+    };
+  }, [permissionState, isListening, isSecureEnv, speechLang, question]);
 
   // Text-To-Speech function to speak answer aloud
   const speakAnswerAloud = (textToSpeak?: string) => {
@@ -463,6 +663,17 @@ export const AiAssistant: React.FC = () => {
     }
   };
 
+  // Filter similar cases if search query matches tags
+  const matchedCases = similarCases.filter(sc => {
+    if (!question) return true;
+    const qLower = question.toLowerCase();
+    return sc.tags.some(t => qLower.includes(t.toLowerCase())) || 
+           sc.subsidiary.toLowerCase().includes(qLower) ||
+           qLower.includes('slope') && sc.title.includes('Slope') ||
+           qLower.includes('water') && sc.title.includes('Water') ||
+           qLower.includes('hydrogeology') && sc.title.includes('Groundwater');
+  });
+
   return (
     <div id="ai-assistant-view" className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-7 max-w-7xl mx-auto">
       {/* Top Banner: Strict Grounding Directives */}
@@ -475,37 +686,110 @@ export const AiAssistant: React.FC = () => {
             Every sentence and metric is linked to approved repository chunks. Unverifiable questions explicitly return "Not Found".
           </p>
         </div>
+
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs font-mono text-[#CBD5E1] cursor-pointer bg-[#192234] px-3 py-1.5 rounded-lg border border-[#334155]">
+            <input
+              type="checkbox"
+              checked={showSimilarCases}
+              onChange={(e) => setShowSimilarCases(e.target.checked)}
+              className="rounded text-[#C8892E] focus:ring-0"
+            />
+            <span>Historical Precedents Panel</span>
+          </label>
+        </div>
       </div>
 
       {/* Main Search Input & Presets */}
       <div className="bg-white border border-[#E4E0D6] rounded-xl p-4 sm:p-6 shadow-xs space-y-4">
-        {/* Voice Input Status Banner if Active */}
+        {/* Live Microphone Voice Input Active Banner */}
         {isListening && (
-          <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-lg px-4 py-2.5 flex items-center justify-between animate-pulse">
-            <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#DC2626]">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
-              </span>
-              <span>VOICE COMMAND ACTIVE: Listening to your mining technical query...</span>
+          <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-xl p-3.5 sm:p-4 shadow-xs space-y-2.5 transition-all">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-600"></span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-[#DC2626] font-mono tracking-wide">
+                      RECORDING YOUR VOICE (LIVE MIC)
+                    </span>
+                    <span className="text-[10px] font-mono text-[#991B1B] bg-red-100 px-1.5 py-0.5 rounded">
+                      {speechLang}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#7F1D1D] mt-0.5">
+                    Speak clearly into your microphone. Your spoken words are transcribed directly into the question box below.
+                  </p>
+                </div>
+              </div>
+
+              {/* Real-time Voice Audio Visualizer Equalizer */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-white/80 border border-[#FECACA] px-2.5 py-1.5 rounded-lg">
+                  <span className="text-[10px] font-mono text-[#991B1B] mr-1">Mic Level:</span>
+                  {[0.4, 0.7, 1.0, 0.6, 0.8, 0.5, 0.9].map((multiplier, idx) => {
+                    const barHeight = Math.max(4, Math.min(22, (micVolumeLevel || 10) * multiplier * 0.25));
+                    return (
+                      <span
+                        key={idx}
+                        className="w-1 bg-[#DC2626] rounded-full transition-all duration-75"
+                        style={{ height: `${barHeight}px` }}
+                      />
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  className="px-3 py-1.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Square className="w-3 h-3 fill-white" />
+                  <span>Done Speaking</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Interim live preview */}
+            {interimSpokenText && (
+              <div className="text-xs bg-white/90 border border-[#FECACA] rounded-lg px-3 py-1.5 text-[#1E293B] font-medium flex items-center gap-2">
+                <span className="text-[10px] font-mono uppercase text-[#DC2626] font-bold">Hearing now:</span>
+                <span className="italic text-[#334155]">"{interimSpokenText}"</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Permission Denied Notice if user blocked mic */}
+        {permissionErrorType === 'denied' && (
+          <div className="bg-[#FFFBEB] border border-[#FDE68A] text-[#1E293B] rounded-xl p-3 shadow-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert className="w-4 h-4 text-[#D97706] shrink-0" />
+              <p className="text-xs text-[#92400E]">
+                <strong className="font-semibold">Microphone Access Denied:</strong> Please click the camera/mic icon in your browser address bar to allow microphone access, then click Voice again.
+              </p>
             </div>
             <button
               type="button"
-              onClick={toggleVoiceInput}
-              className="text-xs text-[#DC2626] font-bold underline hover:text-[#B91C1C] cursor-pointer"
+              onClick={() => setPermissionErrorType(null)}
+              className="text-xs text-[#92400E] font-semibold hover:underline cursor-pointer"
             >
-              Cancel / Stop Mic
+              Dismiss
             </button>
           </div>
         )}
 
         <form onSubmit={(e) => { e.preventDefault(); handleAsk(); }} className="relative">
           <textarea
+            ref={textareaRef}
             id="input-ai-question"
             rows={3}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Type or click the microphone to speak technical inquiry (e.g. reserve figures, borehole depths, DGMS setback rules, coal grades)..."
+            placeholder="Type or click Voice to speak your own query into your microphone (e.g. reserve figures, borehole depths, DGMS setback rules, coal grades)..."
             className="w-full p-3 sm:p-4 pb-14 sm:pb-4 pr-3 sm:pr-36 text-sm bg-[#FAF8F3] border border-[#E4E0D6] rounded-xl focus:outline-none focus:border-[#C8892E] text-[#141C2B] placeholder:text-[#94A3B8] resize-none"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -521,22 +805,34 @@ export const AiAssistant: React.FC = () => {
               type="button"
               id="btn-voice-input"
               onClick={toggleVoiceInput}
-              title={isListening ? 'Click to stop listening' : 'Click to speak technical query using voice command'}
-              className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-xs cursor-pointer ${
+              title={
                 isListening
-                  ? 'bg-[#DC2626] text-white animate-pulse border border-[#B91C1C]'
-                  : 'bg-[#FAF8F3] hover:bg-[#EFEBE2] text-[#141C2B] border border-[#E4E0D6]'
+                  ? 'Click to stop recording voice'
+                  : 'Click or press Ctrl+Space to speak your own question using microphone'
+              }
+              className={`px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer select-none ${
+                isListening
+                  ? 'bg-[#DC2626] hover:bg-[#B91C1C] text-white ring-2 ring-red-400 ring-offset-1 border border-[#991B1B] animate-pulse'
+                  : 'bg-[#FAF8F3] hover:bg-[#EFEBE2] text-[#141C2B] border border-[#E4E0D6] hover:border-[#C8892E]'
               }`}
             >
               {isListening ? (
                 <>
-                  <MicOff className="w-4 h-4 text-white" />
-                  <span className="hidden sm:inline text-[11px]">Listening...</span>
+                  <div className="flex items-center gap-0.5 px-0.5">
+                    <span className="w-1 h-3.5 bg-white rounded-full animate-bounce"></span>
+                    <span className="w-1 h-4.5 bg-white rounded-full animate-bounce delay-75"></span>
+                    <span className="w-1 h-3 bg-white rounded-full animate-bounce delay-150"></span>
+                  </div>
+                  <MicOff className="w-3.5 h-3.5 text-white" />
+                  <span className="inline text-[11px] font-mono font-bold">Stop Mic</span>
                 </>
               ) : (
                 <>
                   <Mic className="w-4 h-4 text-[#C8892E]" />
-                  <span className="hidden sm:inline text-[11px]">Voice</span>
+                  <span className="inline text-[11px] font-medium">Voice</span>
+                  <span className="hidden sm:inline-block font-mono text-[9px] text-[#64748B] bg-white px-1 py-0.5 rounded border border-[#E4E0D6]">
+                    Ctrl+Space
+                  </span>
                 </>
               )}
             </button>
@@ -577,6 +873,21 @@ export const AiAssistant: React.FC = () => {
               <span className="font-mono text-[11px]">Auto-read answers aloud (Voice synthesis)</span>
             </label>
 
+            {/* Language Selector for Speech */}
+            <div className="flex items-center gap-1.5 text-xs text-[#64748B]">
+              <Globe className="w-3.5 h-3.5 text-[#C8892E]" />
+              <span className="text-[11px] font-mono">Mic Lang:</span>
+              <select
+                value={speechLang}
+                onChange={(e) => setSpeechLang(e.target.value)}
+                className="text-[11px] font-mono bg-[#FAF8F3] border border-[#E4E0D6] rounded px-1.5 py-0.5 text-[#141C2B] focus:outline-none focus:border-[#C8892E] cursor-pointer"
+              >
+                <option value="en-IN">English (India - en-IN)</option>
+                <option value="hi-IN">Hindi / Hinglish (hi-IN)</option>
+                <option value="en-US">English (Global - en-US)</option>
+              </select>
+            </div>
+
             {speechStatusText && (
               <span className="text-[11px] font-mono text-[#D97706] bg-[#FEF3C7] px-2 py-0.5 rounded border border-[#FDE68A] flex items-center gap-1">
                 <Radio className="w-3 h-3 text-[#D97706] animate-pulse" />
@@ -586,15 +897,6 @@ export const AiAssistant: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowVoiceAssistModal(true)}
-              className="text-[11px] font-mono font-medium text-[#C8892E] hover:text-[#92400E] flex items-center gap-1 hover:underline cursor-pointer"
-            >
-              <Mic className="w-3 h-3" />
-              <span>Voice Dictation Presets</span>
-            </button>
-
             {isSpeaking && (
               <div className="flex items-center gap-2 text-xs font-mono text-[#C8892E] bg-[#FEF3C7] border border-[#FDE68A] px-2.5 py-0.5 rounded-full animate-pulse">
                 <Volume2 className="w-3.5 h-3.5 text-[#D97706]" />
@@ -647,8 +949,8 @@ export const AiAssistant: React.FC = () => {
 
       {/* Answer & Citations Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Answer Main Panel: Full Width */}
-        <div className="lg:col-span-12 space-y-6">
+        {/* Answer Main Panel: 8 Cols (or 12 if similar cases hidden) */}
+        <div className={showSimilarCases ? "lg:col-span-8 space-y-6" : "lg:col-span-12 space-y-6"}>
           {isSearching && (
             <div className="bg-white border border-[#E4E0D6] rounded-xl p-8 text-center space-y-3">
               <Sparkles className="w-8 h-8 text-[#C8892E] animate-spin mx-auto" />
@@ -869,7 +1171,8 @@ export const AiAssistant: React.FC = () => {
                     {activeResult.citations.map((citation, idx) => (
                       <div
                         key={idx}
-                        className="p-4 sm:p-5 bg-[#FAF8F3] hover:bg-[#FDFBF7] border border-[#E4E0D6] hover:border-[#C8892E] rounded-xl transition-all shadow-2xs group space-y-3"
+                        onClick={() => setActiveCitationForModal(citation)}
+                        className="p-4 sm:p-5 bg-[#FAF8F3] hover:bg-[#FDFBF7] border border-[#E4E0D6] hover:border-[#C8892E] rounded-xl cursor-pointer transition-all shadow-2xs group space-y-3"
                       >
                         {/* Citation Badges Row */}
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -890,44 +1193,26 @@ export const AiAssistant: React.FC = () => {
                         </div>
 
                         {/* Document Title */}
-                        <h4 
-                          onClick={() => setActiveCitationForModal(citation)}
-                          className="font-serif font-bold text-sm sm:text-base text-[#141C2B] leading-snug hover:text-[#C8892E] cursor-pointer transition-colors"
-                        >
+                        <h4 className="font-serif font-bold text-sm sm:text-base text-[#141C2B] leading-snug group-hover:text-[#C8892E] transition-colors">
                           {citation.documentTitle}
                         </h4>
 
                         {/* Verified Excerpt Box */}
-                        <div 
-                          onClick={() => setActiveCitationForModal(citation)}
-                          className="bg-white p-3.5 rounded-lg border border-[#E4E0D6] group-hover:border-[#D4CEBF] cursor-pointer transition-colors"
-                        >
-                          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#64748B] mb-1 flex items-center justify-between">
-                            <span>Verified Source Excerpt:</span>
-                            <span className="text-[#C8892E] text-[10px] font-normal">Click to open</span>
+                        <div className="bg-white p-3.5 rounded-lg border border-[#E4E0D6] group-hover:border-[#D4CEBF] transition-colors">
+                          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#64748B] mb-1">
+                            Verified Source Excerpt:
                           </div>
                           <p className="text-xs sm:text-[13px] text-[#334155] leading-relaxed italic font-serif">
                             "{citation.excerpt}"
                           </p>
                         </div>
 
-                        {/* Card Action Buttons: PDF View + Excerpt Inspection */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#EFEBE2] text-[11px] font-mono">
-                          <button
-                            type="button"
-                            onClick={() => setActiveCitationForModal(citation)}
-                            className="px-3 py-1.5 bg-[#C8892E] hover:bg-[#B37722] text-white font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            <span>Open Statutory PDF View</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setActiveCitationForModal(citation)}
-                            className="text-[#64748B] hover:text-[#141C2B] font-semibold flex items-center gap-1 hover:underline cursor-pointer"
-                          >
-                            <span>Inspect Chunk & Hash →</span>
-                          </button>
+                        {/* Card Action Link */}
+                        <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-[#C8892E] group-hover:text-[#92400E]">
+                          <span className="font-medium">Direct Grounding Vector Chunk</span>
+                          <span className="font-bold flex items-center gap-1 group-hover:underline">
+                            Inspect Verified Chunk & Hash →
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -970,123 +1255,58 @@ export const AiAssistant: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Voice Dictation & Spoken Inquiry Assistant Modal */}
-      {showVoiceAssistModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E4E0D6] rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-[#EFEBE2]">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#FEF3C7] text-[#D97706] rounded-lg">
-                  <Mic className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-serif font-bold text-base text-[#141C2B]">
-                    Voice Dictation Assistant
+        {/* Similar Historical Cases Side Panel: 4 Cols (Section 5.5 Spec) */}
+        {showSimilarCases && (
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-[#EFEBE2]">
+                <div className="flex items-center gap-1.5">
+                  <History className="w-4 h-4 text-[#C8892E]" />
+                  <h3 className="font-serif font-bold text-sm text-[#141C2B]">
+                    Similar Historical Precedents
                   </h3>
-                  <p className="text-xs text-[#64748B]">
-                    Spoken technical inquiry & hands-free voice search
-                  </p>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowVoiceAssistModal(false);
-                  setSimulatedListening(false);
-                }}
-                className="p-1.5 text-[#94A3B8] hover:text-[#141C2B] rounded-lg hover:bg-[#F1EFE9] transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="bg-[#FAF8F3] border border-[#E4E0D6] rounded-xl p-4 space-y-3 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-[#141C2B]">Acoustic Recognition Engine</span>
-                <span className="font-mono text-[11px] bg-[#EFEBE2] px-2 py-0.5 rounded text-[#475569]">
-                  Indian Mining Terminology (en-IN)
+                <span className="text-[10px] font-mono bg-[#EFEBE2] px-1.5 py-0.5 rounded text-[#64748B]">
+                  {matchedCases.length} records
                 </span>
               </div>
 
-              {simulatedListening ? (
-                <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-lg p-3 text-center space-y-2 animate-pulse">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <span className="w-1.5 h-5 bg-red-500 rounded-full animate-bounce"></span>
-                    <span className="w-1.5 h-8 bg-red-600 rounded-full animate-bounce delay-75"></span>
-                    <span className="w-1.5 h-6 bg-red-500 rounded-full animate-bounce delay-150"></span>
-                    <span className="w-1.5 h-9 bg-red-700 rounded-full animate-bounce delay-100"></span>
-                    <span className="w-1.5 h-4 bg-red-500 rounded-full animate-bounce delay-200"></span>
-                  </div>
-                  <p className="font-mono text-xs font-bold text-[#DC2626]">
-                    Listening for geological and mining parameters...
-                  </p>
-                </div>
-              ) : (
-                <p className="text-[#64748B] leading-relaxed">
-                  Select a common vocalized mining inquiry below, or start voice listening:
-                </p>
-              )}
-
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSimulatedListening(true);
-                    sounds.playDispatch();
-                    setTimeout(() => {
-                      setSimulatedListening(false);
-                      const sampleQuery = "What is the factor of safety and slope angle mandated for Gevra OC expansion?";
-                      handleSelectSpokenPrompt(sampleQuery);
-                    }, 2200);
-                  }}
-                  className="flex-1 py-2 px-3 bg-[#141C2B] hover:bg-[#1E293B] text-white rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-                >
-                  <Radio className="w-4 h-4 text-[#C8892E]" />
-                  <span>{simulatedListening ? 'Capturing Voice...' : 'Simulate Voice Dictation'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Spoken Inquiries list */}
-            <div className="space-y-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#64748B]">
-                Tap Spoken Technical Preset:
-              </span>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {[
-                  "What is the liquid nitrogen infusion rate mandated by DGMS for Jharia coalfield fire sealing?",
-                  "What is the certified proved reserve and ash percentage for Seam IV/V in Korba Sector C?",
-                  "What is the 240T dumper availability and specific diesel consumption in NCL Singrauli projects?",
-                  "What are the statutory ventilation and methane cutoff standards mandated by DGMS?",
-                  "What is the overall pit slope angle and factor of safety mandated for Gevra OC expansion?"
-                ].map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSelectSpokenPrompt(preset)}
-                    className="w-full text-left p-2.5 rounded-lg bg-[#FAF8F3] hover:bg-[#FDFBF7] border border-[#E4E0D6] hover:border-[#C8892E] text-[#141C2B] text-xs font-medium transition-all flex items-start gap-2 group cursor-pointer"
+              <div className="space-y-3">
+                {matchedCases.slice(0, 3).map((item) => (
+                  <div 
+                    key={item.id}
+                    className="p-3 bg-[#FAF8F3] border border-[#E4E0D6] rounded-lg text-xs space-y-1.5 hover:border-[#C8892E] transition-all"
                   >
-                    <Mic className="w-3.5 h-3.5 text-[#C8892E] flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                    <span className="leading-snug">{preset}</span>
-                  </button>
+                    <div className="flex items-center justify-between text-[10px] font-mono text-[#64748B]">
+                      <span className="font-bold text-[#141C2B]">{item.subsidiary} · {item.year}</span>
+                      <span className="text-[#16A34A] font-bold">{item.outcome}</span>
+                    </div>
+                    <h4 className="font-bold text-[#141C2B] text-xs">
+                      {item.title}
+                    </h4>
+                    <p className="text-[11px] text-[#475569] leading-relaxed">
+                      {item.summary}
+                    </p>
+                    <div className="pt-1 flex items-center justify-between text-[10px] font-mono text-[#C8892E]">
+                      <span>Ref: {item.referenceDocCode}</span>
+                      <button 
+                        onClick={() => {
+                          setQuestion(`Tell me more about precedent ${item.referenceDocCode} in ${item.subsidiary}`);
+                          handleAsk(`Tell me more about precedent ${item.referenceDocCode} in ${item.subsidiary}`);
+                        }}
+                        className="hover:underline"
+                      >
+                        Ask this case →
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
-
-            <div className="pt-2 border-t border-[#EFEBE2] flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowVoiceAssistModal(false)}
-                className="px-4 py-2 bg-[#FAF8F3] hover:bg-[#EFEBE2] border border-[#E4E0D6] text-[#141C2B] rounded-lg text-xs font-semibold cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

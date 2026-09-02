@@ -35,25 +35,33 @@ export const SettingsView: React.FC = () => {
     chunks
   } = useApp();
 
-  // 1. Theme Setting (Light / Dark)
-  const [isDark, setIsDark] = useState<boolean>(() => {
+  // 1. Theme Setting (Light / Dark / Amber / High Contrast)
+  const [currentTheme, setCurrentTheme] = useState<string>(() => {
     try {
-      return localStorage.getItem('minemind_theme') === 'dark';
+      return localStorage.getItem('minemind_theme') || 'light';
     } catch {
-      return false;
+      return 'light';
     }
   });
+
+  const handleThemeChange = (theme: 'light' | 'dark' | 'amber' | 'contrast') => {
+    setCurrentTheme(theme);
+    const root = document.documentElement;
+    root.classList.remove('dark', 'theme-amber', 'theme-contrast');
+    if (theme === 'dark') root.classList.add('dark');
+    if (theme === 'amber') root.classList.add('theme-amber');
+    if (theme === 'contrast') root.classList.add('theme-contrast');
+    try { localStorage.setItem('minemind_theme', theme); } catch {}
+    sounds.playClick();
+  };
 
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove('dark', 'theme-amber', 'theme-contrast');
-    if (isDark) {
-      root.classList.add('dark');
-      try { localStorage.setItem('minemind_theme', 'dark'); } catch {}
-    } else {
-      try { localStorage.setItem('minemind_theme', 'light'); } catch {}
-    }
-  }, [isDark]);
+    if (currentTheme === 'dark') root.classList.add('dark');
+    if (currentTheme === 'amber') root.classList.add('theme-amber');
+    if (currentTheme === 'contrast') root.classList.add('theme-contrast');
+  }, [currentTheme]);
 
   // 2. Sound Effects
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => sounds.isEnabled());
@@ -134,37 +142,57 @@ export const SettingsView: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 bg-[#FAF8F3] p-1 rounded-lg border border-[#E4E0D6]">
+            <div className="flex flex-wrap items-center gap-1.5 bg-[#FAF8F3] p-1 rounded-lg border border-[#E4E0D6]">
               <button
                 type="button"
-                onClick={() => {
-                  setIsDark(false);
-                  sounds.playClick();
-                }}
-                className={`px-3.5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  !isDark 
+                onClick={() => handleThemeChange('light')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  currentTheme === 'light' 
                     ? 'bg-white text-[#141C2B] shadow-xs font-bold' 
                     : 'text-[#64748B] hover:text-[#141C2B]'
                 }`}
               >
                 <Sun className="w-3.5 h-3.5 text-[#C8892E]" />
-                <span>Light Mode</span>
+                <span>Light</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  setIsDark(true);
-                  sounds.playClick();
-                }}
-                className={`px-3.5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  isDark 
+                onClick={() => handleThemeChange('dark')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  currentTheme === 'dark' 
                     ? 'bg-[#141C2B] text-white shadow-xs font-bold' 
                     : 'text-[#64748B] hover:text-[#141C2B]'
                 }`}
               >
                 <Moon className="w-3.5 h-3.5 text-[#C8892E]" />
-                <span>Dark Mode</span>
+                <span>Dark</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleThemeChange('amber')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  currentTheme === 'amber' 
+                    ? 'bg-[#523719] text-[#FEF3C7] shadow-xs font-bold' 
+                    : 'text-[#64748B] hover:text-[#141C2B]'
+                }`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]"></span>
+                <span>Amber OLED</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleThemeChange('contrast')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  currentTheme === 'contrast' 
+                    ? 'bg-black text-[#F59E0B] border border-[#F59E0B] shadow-xs font-bold' 
+                    : 'text-[#64748B] hover:text-[#141C2B]'
+                }`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span>
+                <span>DGMS Contrast</span>
               </button>
             </div>
           </div>

@@ -51,83 +51,374 @@
   }
 }
 
-/* Dark mode specific container overrides */
+/* ==========================================================================
+   Comprehensive Dark Mode & Accessible Theme Palette Overrides
+   ========================================================================== */
+
+/* 1. Dark Theme Overrides */
 html.dark #minemind-root-layout,
 html.dark main {
   background-color: #0B111E !important;
+  color: #F1F5F9 !important;
 }
 
-html.dark .bg-white {
+html.dark header,
+html.dark #minemind-header,
+html.dark .bg-white,
+html.dark .bg-\[\#FFFFFF\] {
   background-color: #141C2B !important;
-  color: #F1F5F9 !important;
-}
-
-html.dark .bg-\[\#FAF8F3\] {
-  background-color: #192336 !important;
-  color: #F1F5F9 !important;
-}
-
-html.dark .border-\[\#E4E0D6\],
-html.dark .border-\[\#EFEBE2\] {
+  color: #F8FAFC !important;
   border-color: #26354D !important;
 }
 
-html.dark .text-\[\#141C2B\] {
+html.dark .bg-\[\#FAF8F3\],
+html.dark .bg-\[\#F7F5F0\],
+html.dark .bg-\[\#FDFBF7\],
+html.dark .bg-\[\#F1EDE4\],
+html.dark .bg-\[\#FAF7EE\],
+html.dark .bg-\[\#F8FAFC\] {
+  background-color: #192336 !important;
   color: #F1F5F9 !important;
+  border-color: #26354D !important;
 }
 
-html.dark .text-\[\#64748B\] {
+html.dark .bg-\[\#EFEBE2\],
+html.dark .bg-\[\#E2DDCF\],
+html.dark .bg-\[\#F1F5F9\] {
+  background-color: #1E293B !important;
+  color: #F1F5F9 !important;
+  border-color: #334155 !important;
+}
+
+/* Hover background states in dark mode */
+html.dark .hover\:bg-\[\#EFEBE2\]:hover,
+html.dark .hover\:bg-\[\#FAF8F3\]:hover,
+html.dark .hover\:bg-\[\#FDFBF7\]:hover,
+html.dark .hover\:bg-\[\#F1EDE4\]:hover,
+html.dark .hover\:bg-\[\#F1F5F9\]:hover,
+html.dark tr.hover\:bg-\[\#FDFBF7\]:hover,
+html.dark tr:hover {
+  background-color: #1E293B !important;
+}
+
+/* Borders & Dividers */
+html.dark .border-\[\#E4E0D6\],
+html.dark .border-\[\#EFEBE2\],
+html.dark .border-\[\#D4CEBF\],
+html.dark .border-\[\#E2DDCF\],
+html.dark .border-\[\#CBD5E1\] {
+  border-color: #26354D !important;
+}
+
+html.dark .divide-\[\#EFEBE2\] > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-\[\#E4E0D6\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #26354D !important;
+}
+
+/* High Contrast Font & Text Visibility in Dark Mode */
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6,
+html.dark .text-\[\#141C2B\],
+html.dark .text-\[\#0F172A\],
+html.dark .text-\[\#1E293B\],
+html.dark .text-slate-900,
+html.dark .text-gray-900 {
+  color: #F8FAFC !important;
+}
+
+html.dark .text-\[\#334155\],
+html.dark .text-\[\#475569\],
+html.dark .text-slate-700,
+html.dark .text-gray-700 {
+  color: #CBD5E1 !important;
+}
+
+html.dark .text-\[\#64748B\],
+html.dark .text-\[\#8F9BAE\],
+html.dark .text-slate-500,
+html.dark .text-gray-500 {
   color: #94A3B8 !important;
 }
 
-/* Amber OLED Mode */
+/* Form Controls & Inputs in Dark Mode */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #192336 !important;
+  color: #F8FAFC !important;
+  border-color: #26354D !important;
+}
+
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  border-color: #C8892E !important;
+  outline: none !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748B !important;
+}
+
+html.dark select option {
+  background-color: #141C2B !important;
+  color: #F8FAFC !important;
+}
+
+/* Status Badges & Notice Boxes in Dark Mode */
+html.dark .bg-\[\#FEF3C7\],
+html.dark .bg-\[\#FFFBEB\],
+html.dark .bg-amber-50,
+html.dark .bg-yellow-50 {
+  background-color: rgba(120, 53, 15, 0.45) !important;
+  border-color: rgba(217, 119, 6, 0.5) !important;
+}
+
+html.dark .text-\[\#92400E\],
+html.dark .text-\[\#78350F\],
+html.dark .text-\[\#D97706\],
+html.dark .text-amber-800,
+html.dark .text-yellow-800 {
+  color: #FDE68A !important;
+}
+
+html.dark .bg-\[\#FEF2F2\],
+html.dark .bg-\[\#FEE2E2\],
+html.dark .bg-red-50 {
+  background-color: rgba(127, 29, 29, 0.45) !important;
+  border-color: rgba(220, 38, 38, 0.5) !important;
+}
+
+html.dark .text-\[\#DC2626\],
+html.dark .text-\[\#991B1B\],
+html.dark .text-\[\#7F1D1D\],
+html.dark .text-\[\#B91C1C\],
+html.dark .text-red-700,
+html.dark .text-red-800 {
+  color: #FCA5A5 !important;
+}
+
+html.dark .bg-\[\#F0FDF4\],
+html.dark .bg-\[\#DCFCE7\],
+html.dark .bg-green-50 {
+  background-color: rgba(20, 83, 45, 0.45) !important;
+  border-color: rgba(22, 163, 74, 0.5) !important;
+}
+
+html.dark .text-\[\#166534\],
+html.dark .text-\[\#15803D\],
+html.dark .text-\[\#16A34A\],
+html.dark .text-green-700,
+html.dark .text-green-800 {
+  color: #86EFAC !important;
+}
+
+html.dark .bg-\[\#EFF6FF\],
+html.dark .bg-\[\#DBEAFE\],
+html.dark .bg-blue-50 {
+  background-color: rgba(30, 58, 138, 0.45) !important;
+  border-color: rgba(37, 99, 235, 0.5) !important;
+}
+
+html.dark .text-\[\#1E40AF\],
+html.dark .text-\[\#1D4ED8\],
+html.dark .text-\[\#2563EB\],
+html.dark .text-blue-700,
+html.dark .text-blue-800 {
+  color: #93C5FD !important;
+}
+
+/* Neutral metadata pills & subsidiary badges */
+html.dark span.bg-\[\#EFEBE2\],
+html.dark span.bg-\[\#FAF8F3\],
+html.dark span.bg-\[\#E2DDCF\] {
+  background-color: #1E293B !important;
+  color: #E2E8F0 !important;
+  border: 1px solid #334155 !important;
+}
+
+/* Table Headers in Dark Mode */
+html.dark thead tr,
+html.dark th {
+  background-color: #192336 !important;
+  color: #94A3B8 !important;
+  border-color: #26354D !important;
+}
+
+
+/* 2. Amber OLED Theme Overrides */
 html.theme-amber #minemind-root-layout,
 html.theme-amber main {
   background-color: #100C08 !important;
+  color: #FDE68A !important;
 }
 
-html.theme-amber .bg-white {
+html.theme-amber header,
+html.theme-amber #minemind-header,
+html.theme-amber .bg-white,
+html.theme-amber .bg-\[\#FFFFFF\] {
   background-color: #1D150E !important;
   color: #FDE68A !important;
+  border-color: #452E17 !important;
 }
 
-html.theme-amber .bg-\[\#FAF8F3\] {
+html.theme-amber .bg-\[\#FAF8F3\],
+html.theme-amber .bg-\[\#F7F5F0\],
+html.theme-amber .bg-\[\#FDFBF7\],
+html.theme-amber .bg-\[\#F1EDE4\],
+html.theme-amber .bg-\[\#EFEBE2\] {
   background-color: #271D14 !important;
   color: #FDE68A !important;
-}
-
-html.theme-amber .border-\[\#E4E0D6\],
-html.theme-amber .border-\[\#EFEBE2\] {
   border-color: #523719 !important;
 }
 
-html.theme-amber .text-\[\#141C2B\] {
+html.theme-amber .border-\[\#E4E0D6\],
+html.theme-amber .border-\[\#EFEBE2\],
+html.theme-amber .border-\[\#D4CEBF\] {
+  border-color: #523719 !important;
+}
+
+html.theme-amber h1,
+html.theme-amber h2,
+html.theme-amber h3,
+html.theme-amber h4,
+html.theme-amber h5,
+html.theme-amber h6,
+html.theme-amber .text-\[\#141C2B\],
+html.theme-amber .text-\[\#0F172A\],
+html.theme-amber .text-\[\#1E293B\] {
   color: #FEF3C7 !important;
 }
 
-/* High Contrast DGMS Safety Mode */
+html.theme-amber .text-\[\#334155\],
+html.theme-amber .text-\[\#475569\],
+html.theme-amber .text-\[\#64748B\] {
+  color: #D97706 !important;
+}
+
+html.theme-amber input,
+html.theme-amber select,
+html.theme-amber textarea {
+  background-color: #271D14 !important;
+  color: #FEF3C7 !important;
+  border-color: #523719 !important;
+}
+
+
+/* 3. High Contrast DGMS Safety Mode */
 html.theme-contrast #minemind-root-layout,
 html.theme-contrast main {
   background-color: #000000 !important;
+  color: #FFFFFF !important;
 }
 
-html.theme-contrast .bg-white {
+html.theme-contrast header,
+html.theme-contrast #minemind-header,
+html.theme-contrast .bg-white,
+html.theme-contrast .bg-\[\#FFFFFF\] {
   background-color: #080808 !important;
   color: #FFFFFF !important;
   border-color: #F59E0B !important;
 }
 
-html.theme-contrast .bg-\[\#FAF8F3\] {
+html.theme-contrast .bg-\[\#FAF8F3\],
+html.theme-contrast .bg-\[\#F7F5F0\],
+html.theme-contrast .bg-\[\#FDFBF7\],
+html.theme-contrast .bg-\[\#F1EDE4\],
+html.theme-contrast .bg-\[\#EFEBE2\] {
   background-color: #141414 !important;
   color: #FFFFFF !important;
-}
-
-html.theme-contrast .border-\[\#E4E0D6\],
-html.theme-contrast .border-\[\#EFEBE2\] {
   border-color: #F59E0B !important;
 }
 
-html.theme-contrast .text-\[\#141C2B\] {
+html.theme-contrast .border-\[\#E4E0D6\],
+html.theme-contrast .border-\[\#EFEBE2\],
+html.theme-contrast .border-\[\#D4CEBF\] {
+  border-color: #F59E0B !important;
+}
+
+html.theme-contrast h1,
+html.theme-contrast h2,
+html.theme-contrast h3,
+html.theme-contrast h4,
+html.theme-contrast h5,
+html.theme-contrast h6,
+html.theme-contrast .text-\[\#141C2B\],
+html.theme-contrast .text-\[\#0F172A\],
+html.theme-contrast .text-\[\#1E293B\],
+html.theme-contrast .text-\[\#334155\],
+html.theme-contrast .text-\[\#475569\],
+html.theme-contrast .text-\[\#64748B\] {
+  color: #FFFFFF !important;
+}
+
+html.theme-contrast input,
+html.theme-contrast select,
+html.theme-contrast textarea {
+  background-color: #141414 !important;
+  color: #FFFFFF !important;
+  border-color: #F59E0B !important;
+}
+
+/* ==========================================================================
+   Recharts SVG Chart Dark Mode, Amber, and High Contrast Visibility
+   ========================================================================== */
+
+/* Dark Mode Charts */
+html.dark .recharts-cartesian-axis-tick text,
+html.dark .recharts-text,
+html.dark .recharts-cartesian-axis-tick-value {
+  fill: #CBD5E1 !important;
+  color: #CBD5E1 !important;
+}
+
+html.dark .recharts-cartesian-grid line,
+html.dark .recharts-cartesian-grid-horizontal line,
+html.dark .recharts-cartesian-grid-vertical line {
+  stroke: #334155 !important;
+  stroke-opacity: 0.4 !important;
+}
+
+html.dark .recharts-legend-item-text {
+  color: #CBD5E1 !important;
+}
+
+/* Amber OLED Mode Charts */
+html.theme-amber .recharts-cartesian-axis-tick text,
+html.theme-amber .recharts-text,
+html.theme-amber .recharts-cartesian-axis-tick-value {
+  fill: #FDE68A !important;
+  color: #FDE68A !important;
+}
+
+html.theme-amber .recharts-cartesian-grid line {
+  stroke: #523719 !important;
+  stroke-opacity: 0.6 !important;
+}
+
+html.theme-amber .recharts-legend-item-text {
+  color: #FDE68A !important;
+}
+
+/* DGMS High Contrast Mode Charts */
+html.theme-contrast .recharts-cartesian-axis-tick text,
+html.theme-contrast .recharts-text,
+html.theme-contrast .recharts-cartesian-axis-tick-value {
+  fill: #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+
+html.theme-contrast .recharts-cartesian-grid line {
+  stroke: #F59E0B !important;
+  stroke-opacity: 0.5 !important;
+}
+
+html.theme-contrast .recharts-legend-item-text {
   color: #FFFFFF !important;
 }
 

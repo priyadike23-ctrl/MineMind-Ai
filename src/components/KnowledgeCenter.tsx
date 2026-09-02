@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { useSessionState } from '../utils/usePersistentState';
 import { Document, DocumentVersion, DocumentType, Subsidiary, ApprovalStatus } from '../types';
 import { 
   uploadFileToStorage, 
@@ -70,9 +69,9 @@ export const KnowledgeCenter: React.FC = () => {
     setToastMessage
   } = useApp();
 
-  const [typeFilter, setTypeFilter] = useSessionState<string>('kc_type_filter', 'ALL');
-  const [statusFilter, setStatusFilter] = useSessionState<string>('kc_status_filter', 'ALL');
-  const [showOfflineOnly, setShowOfflineOnly] = useSessionState<boolean>('kc_show_offline', false);
+  const [typeFilter, setTypeFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [showOfflineOnly, setShowOfflineOnly] = useState<boolean>(false);
   
   // Upload modal state
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
@@ -82,11 +81,11 @@ export const KnowledgeCenter: React.FC = () => {
   // Upload form state
   const [rawSelectedFile, setRawSelectedFile] = useState<File | null>(null);
   const [uploadedFileDataUrl, setUploadedFileDataUrl] = useState<string | null>(null);
-  const [uploadTitle, setUploadTitle] = useSessionState<string>('kc_upload_title', '');
-  const [uploadDocCode, setUploadDocCode] = useSessionState<string>('kc_upload_doc_code', '');
-  const [uploadSubsidiary, setUploadSubsidiary] = useSessionState<Subsidiary>('kc_upload_sub', currentUser.subsidiary);
-  const [uploadType, setUploadType] = useSessionState<DocumentType>('kc_upload_type', 'geological_report');
-  const [uploadReason, setUploadReason] = useSessionState<string>('kc_upload_reason', '');
+  const [uploadTitle, setUploadTitle] = useState<string>('');
+  const [uploadDocCode, setUploadDocCode] = useState<string>('');
+  const [uploadSubsidiary, setUploadSubsidiary] = useState<Subsidiary>(currentUser.subsidiary);
+  const [uploadType, setUploadType] = useState<DocumentType>('geological_report');
+  const [uploadReason, setUploadReason] = useState<string>('');
   const [uploadFileName, setUploadFileName] = useState<string>('');
   const [uploadFileSize, setUploadFileSize] = useState<string>('12.4 MB');
   const [uploadTextContent, setUploadTextContent] = useState<string>('');

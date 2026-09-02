@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { useSessionState } from '../utils/usePersistentState';
 import { AuditLogEntry, Subsidiary } from '../types';
 import { 
   ShieldAlert, 
@@ -29,9 +28,9 @@ import {
 
 export const AuditTrail: React.FC = () => {
   const { auditLogs, selectedSubsidiary, setSelectedSubsidiary, documents, securityIncidents, activeSecureSession, currentUser } = useApp();
-  const [activeTab, setActiveTab] = useSessionState<'audit' | 'security'>('audit_active_tab', 'audit');
-  const [searchTerm, setSearchTerm] = useSessionState<string>('audit_search_term', '');
-  const [actionFilter, setActionFilter] = useSessionState<string>('audit_action_filter', 'ALL');
+  const [activeTab, setActiveTab] = useState<'audit' | 'security'>('audit');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [actionFilter, setActionFilter] = useState<string>('ALL');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [serverEvents, setServerEvents] = useState<any[]>([]);
 
