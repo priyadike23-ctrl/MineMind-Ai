@@ -207,6 +207,7 @@ This builds the application into the `dist/` folder ready for static hosting or 
 
 ## 📚 Comprehensive Documentation Index
 
+* 🏆 **[SIH Problem Statement Compliance & Feature Mapping](./SIH_PROBLEM_STATEMENT_COMPLIANCE.md)**: Direct mapping of SIH Problem Statement #26023 (Ministry of Coal) requirements against our implemented modules.
 * ⚡ **[Complete Automations & Intelligent Workflows](./AUTOMATIONS.md)**: Exhaustive breakdown of all 10 automation engines (Multi-Modal OCR, Statutory Pre-Screening, Merkle Ledger, RAG Citations, Contradiction Detection, Form IV Compilation, Offline Pit Cache, Voice Engine, RBAC Triage).
 * 🎙️ **[Master Viva Speech & Team Roles Pitching Guide](./TEAM_ROLES_AND_PITCH_GUIDE.md)**: Word-for-word viva presentation scripts, 5-role team contribution breakdown, architecture defense, and examiner Q&A cheat sheet.
 * 🛠️ **[Technology Stack Specification](./TECH_STACK.md)**: Detailed breakdown of frontend, backend, AI/RAG engine, data visualizers, security mechanisms, and dependency manifest.
