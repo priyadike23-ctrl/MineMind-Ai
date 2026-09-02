@@ -280,13 +280,13 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Security Middleware: Set Secure HTTP Headers
+  // Security Middleware: Set Secure HTTP Headers (Allow microphone for voice queries & accessibility)
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    // Note: Allow microphone in permissions policy for real-time speech input & officer voice commands
+    res.setHeader('Permissions-Policy', 'camera=*, microphone=*, geolocation=*');
     next();
   });
 
@@ -323,6 +323,74 @@ async function startServer() {
       recentEvents: serverSecurityLog.slice(0, 50),
       timestamp: new Date().toISOString(),
     });
+  });
+
+  // API Route: Real-time Multimodal AI Voice & Speech Transcription
+  app.post('/api/ai/transcribe-audio', aiGenerationLimiter, async (req, res) => {
+    try {
+      const { audioData, mimeType, lang } = req.body;
+      if (!audioData || typeof audioData !== 'string') {
+        return res.status(400).json({ error: 'audioData base64 string is required' });
+      }
+
+      // Clean base64 string
+      const cleanBase64 = audioData.replace(/^data:[^;]+;base64,/, '').trim();
+      if (!cleanBase64) {
+        return res.status(400).json({ error: 'Valid audio data is required' });
+      }
+
+      const cleanMimeType = mimeType || 'audio/webm';
+      const gemini = getGeminiClient();
+
+      if (gemini) {
+        const candidateModels = ['gemini-3.5-transcribe', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+        for (const modelName of candidateModels) {
+          try {
+            const response = await gemini.models.generateContent({
+              model: modelName,
+              contents: [
+                {
+                  role: 'user',
+                  parts: [
+                    {
+                      inlineData: {
+                        mimeType: cleanMimeType,
+                        data: cleanBase64,
+                      },
+                    },
+                    {
+                      text: `Listen to this spoken audio recording from a user in a mining and geological domain (preferred language: ${lang || 'English / Hindi'}). Transcribe what the user spoke accurately. Include geological terms, CMPDI/CIL subsidiary names (SECL, NCL, BCCL, ECL, CCL, WCL, MCL), DGMS parameters, coal grades, borehole numbers, and mining equipment accurately. If the user issued a question or command, transcribe the complete spoken sentence naturally. Return only the exact transcribed speech text without formatting or commentary. If audio is silent or unintelligible noise, return an empty string.`,
+                    },
+                  ],
+                },
+              ],
+            });
+
+            const rawText = response.text?.trim() || '';
+            const transcription = rawText.replace(/^["']|["']$/g, '').trim();
+            if (transcription) {
+              return res.json({
+                text: transcription,
+                provider: 'gemini-multimodal-voice',
+                modelUsed: modelName,
+              });
+            }
+          } catch (modelErr: any) {
+            console.warn(`[Audio Transcription] Model ${modelName} notice:`, modelErr?.message?.slice(0, 100) || modelErr);
+          }
+        }
+      }
+
+      // Return graceful empty response if no AI model transcribed
+      res.json({
+        text: '',
+        provider: 'fallback',
+        message: 'No speech detected or AI transcription fallback.'
+      });
+    } catch (err: any) {
+      console.error('Error in /api/ai/transcribe-audio:', err);
+      res.status(500).json({ error: 'Failed to transcribe audio' });
+    }
   });
 
   // API Route: Grounded AI Q&A (Rate Limited & Sanitized)

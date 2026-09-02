@@ -103,7 +103,6 @@ export const AiAssistant: React.FC = () => {
     draftOfficialReply?: string;
   } | null>(null);
 
-  const [showSimilarCases, setShowSimilarCases] = useState<boolean>(true);
   const [showDraftReply, setShowDraftReply] = useState<boolean>(false);
   const [copiedAnswer, setCopiedAnswer] = useState<boolean>(false);
   const [copiedDraft, setCopiedDraft] = useState<boolean>(false);
@@ -114,11 +113,14 @@ export const AiAssistant: React.FC = () => {
   // Voice Interaction States (STT & TTS)
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [isTranscribingAudio, setIsTranscribingAudio] = useState<boolean>(false);
   const [autoSpeakAnswer, setAutoSpeakAnswer] = useState<boolean>(false);
   const [speechStatusText, setSpeechStatusText] = useState<string>('');
   const [speechLang, setSpeechLang] = useState<string>('en-IN');
   const [micVolumeLevel, setMicVolumeLevel] = useState<number>(0);
   const [interimSpokenText, setInterimSpokenText] = useState<string>('');
+  const [voiceCommandDetected, setVoiceCommandDetected] = useState<string | null>(null);
+  const [showVoiceHelp, setShowVoiceHelp] = useState<boolean>(false);
 
   // Microphone Permissions & Security Context States
   const [permissionState, setPermissionState] = useState<PermissionState | 'unknown'>('prompt');
@@ -128,11 +130,14 @@ export const AiAssistant: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const isListeningRef = useRef<boolean>(false);
   const silenceTimerRef = useRef<any>(null);
   const baseTranscriptRef = useRef<string>('');
+  const restartTimeoutRef = useRef<any>(null);
 
   // 1. Proactively check secure context & browser mic permission state on mount
   useEffect(() => {
@@ -171,7 +176,7 @@ export const AiAssistant: React.FC = () => {
     }
   }, []);
 
-  // Stop real-time audio visualization
+  // Stop real-time audio visualization and recorder
   const stopAudioLevelMeter = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -227,6 +232,49 @@ export const AiAssistant: React.FC = () => {
     }
   };
 
+  // Helper to test or grant microphone permissions explicitly
+  const requestMicrophonePermission = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setPermissionErrorType('unsupported');
+      setToastMessage({
+        type: 'warning',
+        text: 'Microphone API is not supported on this device/browser.'
+      });
+      return false;
+    }
+
+    try {
+      setSpeechStatusText('Requesting microphone access in browser...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setPermissionState('granted');
+      setPermissionErrorType(null);
+      setToastMessage({
+        type: 'success',
+        text: 'Microphone access granted successfully!'
+      });
+      // Test audio level for 2 seconds to confirm live input
+      startAudioLevelMeter(stream);
+      setTimeout(() => {
+        if (!isListeningRef.current) {
+          stopAudioLevelMeter();
+          stream.getTracks().forEach(t => t.stop());
+        }
+      }, 2500);
+      setSpeechStatusText('Microphone ready! Click Voice to speak.');
+      return true;
+    } catch (err: any) {
+      console.warn('Direct microphone access request failed:', err);
+      setPermissionState('denied');
+      setPermissionErrorType('denied');
+      setToastMessage({
+        type: 'warning',
+        text: 'Microphone permission blocked. Please enable it in browser address bar.'
+      });
+      setSpeechStatusText('Microphone permission blocked in browser.');
+      return false;
+    }
+  };
+
   // Clean up recognition and timers on unmount
   useEffect(() => {
     return () => {
@@ -234,7 +282,13 @@ export const AiAssistant: React.FC = () => {
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
       stopAudioLevelMeter();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.stop(); } catch {}
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -246,45 +300,147 @@ export const AiAssistant: React.FC = () => {
     };
   }, []);
 
-  const resetSilenceTimer = (recognizer: any) => {
+  const resetSilenceTimer = () => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
     }
-    // Automatically stop after 6 seconds of silence to finalize
+    // Finalize after 8 seconds of continuous silence to allow natural speech pauses
     silenceTimerRef.current = setTimeout(() => {
       if (isListeningRef.current) {
-        setSpeechStatusText('Voice query captured. Click Ask to submit or speak more.');
-        try {
-          recognizer.stop();
-        } catch {}
+        setSpeechStatusText('Voice captured. Click Ask to submit or continue speaking.');
       }
-    }, 6000);
+    }, 8000);
+  };
+
+  // Convert audio blob to base64 and transcribe via Gemini multimodal audio endpoint
+  const transcribeAudioViaGemini = async (audioBlob: Blob): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64Data = (reader.result as string) || '';
+          setIsTranscribingAudio(true);
+          setSpeechStatusText('Transcribing speech with Gemini Multimodal AI...');
+
+          const res = await fetch('/api/ai/transcribe-audio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              audioData: base64Data,
+              mimeType: audioBlob.type || 'audio/webm',
+              lang: speechLang,
+            }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.text && typeof data.text === 'string' && data.text.trim()) {
+              resolve(data.text.trim());
+              return;
+            }
+          }
+          resolve('');
+        } catch (err) {
+          console.warn('[Voice] Gemini audio transcription notice:', err);
+          resolve('');
+        } finally {
+          setIsTranscribingAudio(false);
+        }
+      };
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(audioBlob);
+    });
+  };
+
+  // Process potential spoken command keywords
+  const processVoiceCommands = (fullSpokenText: string): { isCommand: boolean; cleanedQuery?: string; commandType?: string } => {
+    const lower = fullSpokenText.toLowerCase().trim();
+
+    // 1. Submit / Search commands
+    const submitTriggers = [
+      'ask question', 'search records', 'submit query', 'ask ai', 'find this', 
+      'please search', 'search now', 'submit now', 'run query', 'khojo', 'pucho'
+    ];
+    for (const trigger of submitTriggers) {
+      if (lower.endsWith(trigger) || lower.startsWith(trigger)) {
+        const cleaned = fullSpokenText
+          .replace(new RegExp(`^${trigger}\\s*`, 'i'), '')
+          .replace(new RegExp(`\\s*${trigger}$`, 'i'), '')
+          .trim();
+        return { isCommand: true, cleanedQuery: cleaned || fullSpokenText, commandType: 'SUBMIT' };
+      }
+    }
+
+    // 2. Clear query command
+    if (lower === 'clear' || lower === 'clear query' || lower === 'reset query' || lower === 'mitao' || lower === 'clear input') {
+      return { isCommand: true, commandType: 'CLEAR' };
+    }
+
+    // 3. Read aloud command
+    if (lower === 'read aloud' || lower === 'speak answer' || lower === 'read answer' || lower === 'bol kar batao') {
+      return { isCommand: true, commandType: 'SPEAK' };
+    }
+
+    return { isCommand: false };
   };
 
   const startLiveSpeechRecognition = async () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    // Try to get audio stream for mic permission & real-time visual level meter non-blockingly
+    // 1. Acquire live microphone stream for real-time visualization and MediaRecorder audio backup
+    let stream: MediaStream | null = null;
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        });
         mediaStreamRef.current = stream;
         startAudioLevelMeter(stream);
         setPermissionState('granted');
         setPermissionErrorType(null);
-      } catch (err: any) {
-        console.warn('Microphone stream permission note:', err);
-        // Continue even if getUserMedia threw, as SpeechRecognition might still be permitted or handled separately
-      }
-    }
 
-    if (!SpeechRecognition) {
-      setToastMessage({
-        type: 'warning',
-        text: 'Speech recognition is not supported in this browser environment. Please type your query.'
-      });
-      setSpeechStatusText('Speech recognition not supported in browser.');
-      return;
+        // Start MediaRecorder in parallel for high-fidelity fallback transcription
+        audioChunksRef.current = [];
+        try {
+          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : MediaRecorder.isTypeSupported('audio/webm')
+            ? 'audio/webm'
+            : MediaRecorder.isTypeSupported('audio/mp4')
+            ? 'audio/mp4'
+            : '';
+          const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+          mediaRecorderRef.current = recorder;
+          recorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) {
+              audioChunksRef.current.push(e.data);
+            }
+          };
+          recorder.start(250); // Slice every 250ms
+        } catch (recErr) {
+          console.warn('MediaRecorder setup note:', recErr);
+        }
+      } catch (err: any) {
+        console.warn('Microphone stream permission error:', err);
+        const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+        if (isDenied) {
+          setPermissionState('denied');
+          setPermissionErrorType('denied');
+          setIsListening(false);
+          isListeningRef.current = false;
+          stopAudioLevelMeter();
+          setToastMessage({
+            type: 'warning',
+            text: 'Microphone permission denied. Please allow microphone in your browser address bar.'
+          });
+          setSpeechStatusText('Microphone permission blocked in browser.');
+          return;
+        }
+      }
     }
 
     // Stop any existing recognition session
@@ -293,6 +449,15 @@ export const AiAssistant: React.FC = () => {
         recognitionRef.current.abort();
       } catch {}
       recognitionRef.current = null;
+    }
+
+    if (!SpeechRecognition) {
+      // If Web Speech API not supported (e.g. Firefox/Linux), notify user that MediaRecorder voice mode is active
+      setIsListening(true);
+      isListeningRef.current = true;
+      sounds.playDispatch();
+      setSpeechStatusText('Listening via AI Voice Recorder. Click Done when finished...');
+      return;
     }
 
     try {
@@ -310,7 +475,7 @@ export const AiAssistant: React.FC = () => {
         setIsListening(true);
         sounds.playDispatch();
         setSpeechStatusText('Microphone active. Speak your mining technical question...');
-        resetSilenceTimer(recognizer);
+        resetSilenceTimer();
       };
 
       recognizer.onresult = (event: any) => {
@@ -335,7 +500,30 @@ export const AiAssistant: React.FC = () => {
         if (combinedText) {
           setQuestion(combinedText);
           setSpeechStatusText(`Listening: "${combinedText.slice(-45)}"`);
-          resetSilenceTimer(recognizer);
+          resetSilenceTimer();
+
+          // Check for voice command triggers
+          const cmdCheck = processVoiceCommands(combinedText);
+          if (cmdCheck.isCommand) {
+            if (cmdCheck.commandType === 'SUBMIT') {
+              setVoiceCommandDetected('COMMAND DETECTED: SUBMITTING QUERY');
+              sounds.playSuccess();
+              toggleVoiceInput();
+              if (cmdCheck.cleanedQuery) {
+                setQuestion(cmdCheck.cleanedQuery);
+                handleAsk(cmdCheck.cleanedQuery);
+              }
+            } else if (cmdCheck.commandType === 'CLEAR') {
+              setVoiceCommandDetected('COMMAND DETECTED: CLEARED QUERY');
+              sounds.playClick();
+              setQuestion('');
+              baseTranscriptRef.current = '';
+              setInterimSpokenText('');
+            } else if (cmdCheck.commandType === 'SPEAK') {
+              setVoiceCommandDetected('COMMAND DETECTED: SPEAKING ANSWER');
+              speakAnswerAloud();
+            }
+          }
         }
       };
 
@@ -354,16 +542,31 @@ export const AiAssistant: React.FC = () => {
           });
           setSpeechStatusText('Microphone permission blocked.');
         } else if (event.error === 'no-speech') {
-          setSpeechStatusText('Listening... Speak anytime into your microphone.');
+          setSpeechStatusText('Listening... Speak your question into your microphone.');
         } else if (event.error === 'network') {
-          setSpeechStatusText('Speech service network error.');
+          setSpeechStatusText('Speech service network glitch. Auto-recovering...');
         } else {
           setSpeechStatusText(`Voice input: ${event.error}`);
         }
       };
 
       recognizer.onend = () => {
-        isListeningRef.current = false;
+        // Auto-restart recognition if user is still in listening mode (prevents dropping words on natural pauses)
+        if (isListeningRef.current) {
+          if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
+          restartTimeoutRef.current = setTimeout(() => {
+            if (isListeningRef.current) {
+              try {
+                recognizer.start();
+              } catch (e) {
+                // If restarting throws, fallback to audio recorder
+                console.warn('Recognition auto-restart note:', e);
+              }
+            }
+          }, 150);
+          return;
+        }
+
         setIsListening(false);
         recognitionRef.current = null;
         setInterimSpokenText('');
@@ -371,23 +574,18 @@ export const AiAssistant: React.FC = () => {
         if (silenceTimerRef.current) {
           clearTimeout(silenceTimerRef.current);
         }
-        sounds.playSuccess();
-        setSpeechStatusText('Voice captured. Ready to Ask!');
       };
 
       recognitionRef.current = recognizer;
       isListeningRef.current = true;
+      setIsListening(true);
       recognizer.start();
     } catch (err: any) {
       console.warn('SpeechRecognition start failed:', err);
-      setIsListening(false);
-      isListeningRef.current = false;
-      stopAudioLevelMeter();
-      setToastMessage({
-        type: 'warning',
-        text: 'Speech recognition could not be started.'
-      });
-      setSpeechStatusText('Voice recognition unavailable.');
+      // Keep MediaRecorder active as fallback
+      setIsListening(true);
+      isListeningRef.current = true;
+      setSpeechStatusText('Listening via AI Voice Recorder...');
     }
   };
 
@@ -398,11 +596,17 @@ export const AiAssistant: React.FC = () => {
       setIsSpeaking(false);
     }
 
-    // 1. If currently listening, stop immediately and keep whatever user spoke
+    // 1. If currently listening, stop and finalize
     if (isListening || isListeningRef.current) {
       isListeningRef.current = false;
+      setIsListening(false);
+      setInterimSpokenText('');
+
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
+      }
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
       }
       if (recognitionRef.current) {
         try {
@@ -411,14 +615,42 @@ export const AiAssistant: React.FC = () => {
         recognitionRef.current = null;
       }
       stopAudioLevelMeter();
-      setIsListening(false);
-      setInterimSpokenText('');
-      setSpeechStatusText('Voice recording stopped. Text captured.');
-      sounds.playClick();
+
+      // Finalize MediaRecorder audio and fallback transcribe with Gemini if needed
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {}
+      }
+
+      // Check if we already have captured text from Web Speech API
+      if (question.trim()) {
+        sounds.playSuccess();
+        setSpeechStatusText('Voice captured. Ready to Ask!');
+      } else if (audioChunksRef.current.length > 0) {
+        // Fallback: If Web Speech was empty/blocked, use Gemini Multimodal Voice Transcription
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (audioBlob.size > 1500) {
+          const transcribed = await transcribeAudioViaGemini(audioBlob);
+          if (transcribed) {
+            setQuestion(transcribed);
+            sounds.playSuccess();
+            setSpeechStatusText('Voice transcribed with Gemini Multimodal AI. Ready to Ask!');
+            setToastMessage({
+              type: 'success',
+              text: 'Voice query transcribed successfully!'
+            });
+            return;
+          }
+        }
+        setSpeechStatusText('No spoken voice detected. Click Voice to try again.');
+      } else {
+        setSpeechStatusText('Voice recording stopped.');
+      }
       return;
     }
 
-    // 2. Start live speech recognition with user's own microphone or fallback helper
+    // 2. Start live speech recognition with user's own microphone
     startLiveSpeechRecognition();
   };
 
@@ -677,18 +909,6 @@ export const AiAssistant: React.FC = () => {
             Every sentence and metric is linked to approved repository chunks. Unverifiable questions explicitly return "Not Found".
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs font-mono text-[#CBD5E1] cursor-pointer bg-[#192234] px-3 py-1.5 rounded-lg border border-[#334155]">
-            <input
-              type="checkbox"
-              checked={showSimilarCases}
-              onChange={(e) => setShowSimilarCases(e.target.checked)}
-              className="rounded text-[#C8892E] focus:ring-0"
-            />
-            <span>Historical Precedents Panel</span>
-          </label>
-        </div>
       </div>
 
       {/* Main Search Input & Presets */}
@@ -712,7 +932,7 @@ export const AiAssistant: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-[11px] text-[#7F1D1D] mt-0.5">
-                    Speak clearly into your microphone. Your spoken words are transcribed directly into the question box below.
+                    Speak naturally. Words are continuously transcribed. Say <strong className="font-semibold">"Search"</strong> or <strong className="font-semibold">"Ask"</strong> to submit, or <strong className="font-semibold">"Clear"</strong> to reset.
                   </p>
                 </div>
               </div>
@@ -754,24 +974,33 @@ export const AiAssistant: React.FC = () => {
           </div>
         )}
 
-        {/* Permission Denied Notice if user blocked mic */}
-        {permissionErrorType === 'denied' && (
-          <div className="bg-[#FFFBEB] border border-[#FDE68A] text-[#1E293B] rounded-xl p-3 shadow-xs flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <ShieldAlert className="w-4 h-4 text-[#D97706] shrink-0" />
-              <p className="text-xs text-[#92400E]">
-                <strong className="font-semibold">Microphone Access Denied:</strong> Please click the camera/mic icon in your browser address bar to allow microphone access, then click Voice again.
-              </p>
+        {/* AI Multimodal Transcribing Loader Banner */}
+        {isTranscribingAudio && (
+          <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-3 shadow-xs flex items-center gap-3">
+            <Sparkles className="w-4 h-4 text-[#2563EB] animate-spin shrink-0" />
+            <div className="text-xs text-[#1E40AF]">
+              <strong className="font-semibold">Transcribing Voice with Gemini Multimodal AI:</strong> Processing audio recording with mining & CIL technical vocabulary grounding...
+            </div>
+          </div>
+        )}
+
+        {/* Voice Command feedback toast notification */}
+        {voiceCommandDetected && (
+          <div className="bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46] rounded-xl p-2.5 px-3.5 shadow-xs flex items-center justify-between gap-2 text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5 text-[#059669]" />
+              <span className="font-bold">{voiceCommandDetected}</span>
             </div>
             <button
               type="button"
-              onClick={() => setPermissionErrorType(null)}
-              className="text-xs text-[#92400E] font-semibold hover:underline cursor-pointer"
+              onClick={() => setVoiceCommandDetected(null)}
+              className="text-[#059669] hover:underline text-[10px] cursor-pointer"
             >
               Dismiss
             </button>
           </div>
         )}
+
 
         <form onSubmit={(e) => { e.preventDefault(); handleAsk(); }} className="relative">
           <textarea
@@ -780,7 +1009,7 @@ export const AiAssistant: React.FC = () => {
             rows={3}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Type or click Voice to speak your own query into your microphone (e.g. reserve figures, borehole depths, DGMS setback rules, coal grades)..."
+            placeholder="Type or click Voice to speak your query into your microphone (e.g. reserve figures, borehole depths, DGMS setback rules, coal grades)..."
             className="w-full p-3 sm:p-4 pb-14 sm:pb-4 pr-3 sm:pr-36 text-sm bg-[#FAF8F3] border border-[#E4E0D6] rounded-xl focus:outline-none focus:border-[#C8892E] text-[#141C2B] placeholder:text-[#94A3B8] resize-none"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -879,6 +1108,15 @@ export const AiAssistant: React.FC = () => {
               </select>
             </div>
 
+            <button
+              type="button"
+              onClick={() => setShowVoiceHelp(!showVoiceHelp)}
+              className="text-[11px] font-mono text-[#64748B] hover:text-[#C8892E] flex items-center gap-1 cursor-pointer"
+            >
+              <HelpIcon className="w-3 h-3 text-[#C8892E]" />
+              <span>Voice Commands Cheat Sheet</span>
+            </button>
+
             {speechStatusText && (
               <span className="text-[11px] font-mono text-[#D97706] bg-[#FEF3C7] px-2 py-0.5 rounded border border-[#FDE68A] flex items-center gap-1">
                 <Radio className="w-3 h-3 text-[#D97706] animate-pulse" />
@@ -902,6 +1140,38 @@ export const AiAssistant: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Voice Commands Cheat Sheet Drawer */}
+        {showVoiceHelp && (
+          <div className="bg-[#FAF8F3] border border-[#E4E0D6] rounded-xl p-3.5 text-xs text-[#1E293B] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs font-mono text-[#141C2B] uppercase tracking-wide flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-[#C8892E]" /> Spoken Voice Commands & Controls
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowVoiceHelp(false)}
+                className="text-xs text-[#64748B] hover:text-black cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[11px]">
+              <div className="bg-white p-2 rounded-lg border border-[#E4E0D6]">
+                <strong className="text-[#C8892E] block mb-0.5">Submit Query</strong>
+                <span>Say <em>"Search records"</em>, <em>"Ask"</em>, or <em>"Submit query"</em> at the end of your question.</span>
+              </div>
+              <div className="bg-white p-2 rounded-lg border border-[#E4E0D6]">
+                <strong className="text-[#C8892E] block mb-0.5">Clear Text</strong>
+                <span>Say <em>"Clear query"</em> or <em>"Reset"</em> to wipe the question field and start over.</span>
+              </div>
+              <div className="bg-white p-2 rounded-lg border border-[#E4E0D6]">
+                <strong className="text-[#C8892E] block mb-0.5">Listen Aloud</strong>
+                <span>Say <em>"Read aloud"</em> or <em>"Speak answer"</em> to hear the retrieved record read to you.</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Preset Query Chips (Section 5.5 Spec) */}
         <div>
@@ -939,9 +1209,9 @@ export const AiAssistant: React.FC = () => {
       </div>
 
       {/* Answer & Citations Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Answer Main Panel: 8 Cols (or 12 if similar cases hidden) */}
-        <div className={showSimilarCases ? "lg:col-span-8 space-y-6" : "lg:col-span-12 space-y-6"}>
+      <div className="space-y-6">
+        {/* Answer Main Panel */}
+        <div className="space-y-6">
           {isSearching && (
             <div className="bg-white border border-[#E4E0D6] rounded-xl p-8 text-center space-y-3">
               <Sparkles className="w-8 h-8 text-[#C8892E] animate-spin mx-auto" />
@@ -1246,57 +1516,6 @@ export const AiAssistant: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Similar Historical Cases Side Panel: 4 Cols (Section 5.5 Spec) */}
-        {showSimilarCases && (
-          <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-[#EFEBE2]">
-                <div className="flex items-center gap-1.5">
-                  <History className="w-4 h-4 text-[#C8892E]" />
-                  <h3 className="font-serif font-bold text-sm text-[#141C2B]">
-                    Similar Historical Precedents
-                  </h3>
-                </div>
-                <span className="text-[10px] font-mono bg-[#EFEBE2] px-1.5 py-0.5 rounded text-[#64748B]">
-                  {matchedCases.length} records
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {matchedCases.slice(0, 3).map((item) => (
-                  <div 
-                    key={item.id}
-                    className="p-3 bg-[#FAF8F3] border border-[#E4E0D6] rounded-lg text-xs space-y-1.5 hover:border-[#C8892E] transition-all"
-                  >
-                    <div className="flex items-center justify-between text-[10px] font-mono text-[#64748B]">
-                      <span className="font-bold text-[#141C2B]">{item.subsidiary} · {item.year}</span>
-                      <span className="text-[#16A34A] font-bold">{item.outcome}</span>
-                    </div>
-                    <h4 className="font-bold text-[#141C2B] text-xs">
-                      {item.title}
-                    </h4>
-                    <p className="text-[11px] text-[#475569] leading-relaxed">
-                      {item.summary}
-                    </p>
-                    <div className="pt-1 flex items-center justify-between text-[10px] font-mono text-[#C8892E]">
-                      <span>Ref: {item.referenceDocCode}</span>
-                      <button 
-                        onClick={() => {
-                          setQuestion(`Tell me more about precedent ${item.referenceDocCode} in ${item.subsidiary}`);
-                          handleAsk(`Tell me more about precedent ${item.referenceDocCode} in ${item.subsidiary}`);
-                        }}
-                        className="hover:underline"
-                      >
-                        Ask this case →
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
