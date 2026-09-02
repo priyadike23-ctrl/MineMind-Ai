@@ -63,36 +63,36 @@ export const MyUpdates: React.FC = () => {
   return (
     <div id="my-updates-view" className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="bg-[#141C2B] text-white border border-[#1E293B] rounded-xl p-4 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white text-[#0B2238] border border-[#D1DCE5] rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-mono text-[#C8892E] font-bold uppercase tracking-wider mb-1">
-            <Clock className="w-4 h-4 text-[#C8892E]" />
-            <span>Officer Submissions & Directorate Tracking</span>
+          <div className="flex items-center gap-2 text-xs font-mono text-[#D97706] font-bold uppercase tracking-wider mb-1">
+            <Clock className="w-4 h-4 text-[#D97706]" />
+            <span>OFFICER SUBMISSIONS & DIRECTORATE TRACKING</span>
           </div>
-          <h2 className="font-serif font-bold text-2xl text-white">
+          <h2 className="font-sans font-bold text-xl sm:text-2xl text-[#0B2238]">
             My Document Updates & Submissions
           </h2>
-          <p className="text-xs text-[#94A3B8] mt-1">
+          <p className="text-xs text-[#64748B] mt-1 font-medium">
             Track statutory approval review progress, directorate notes, and version indexing states.
           </p>
         </div>
 
         <button
           onClick={() => setActiveView('knowledge')}
-          className="px-4 py-2.5 bg-[#C8892E] hover:bg-[#B77A23] text-[#141C2B] text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
+          className="px-4 py-2.5 bg-[#D97706] hover:bg-[#B45309] text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 text-white" />
           <span>Submit Another Revision</span>
         </button>
       </div>
 
       {/* Submissions List */}
-      <div className="bg-white border border-[#E4E0D6] rounded-xl overflow-hidden shadow-xs">
-        <div className="p-4 border-b border-[#EFEBE2] flex items-center justify-between">
-          <h3 className="font-serif font-bold text-base text-[#141C2B]">
+      <div className="bg-white border border-[#D1DCE5] rounded-2xl overflow-hidden shadow-xs">
+        <div className="p-4 sm:px-5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+          <h3 className="font-sans font-bold text-sm text-[#0B2238]">
             Submission History ({submissions.length} updates)
           </h3>
-          <span className="text-xs font-mono text-[#64748B]">
+          <span className="text-xs font-mono text-[#64748B] font-medium">
             {currentUser.subsidiary} Division Officer Portal
           </span>
         </div>
@@ -100,7 +100,7 @@ export const MyUpdates: React.FC = () => {
         {submissions.length === 0 ? (
           <div className="p-12 text-center bg-[#FAF8F3]">
             <FileText className="w-10 h-10 text-[#8F9BAE] mx-auto mb-2" />
-            <h4 className="font-serif font-bold text-base text-[#141C2B]">No Submissions Recorded Yet</h4>
+            <h4 className="font-sans font-bold text-base text-[#141C2B]">No Submissions Recorded Yet</h4>
             <p className="text-xs text-[#64748B] mt-1">
               Upload a technical document from the Knowledge Center to initiate the verification lifecycle.
             </p>
@@ -153,7 +153,7 @@ export const MyUpdates: React.FC = () => {
                   </div>
 
                   <div>
-                    <h4 className="font-serif font-bold text-base text-[#141C2B]">{doc.title}</h4>
+                    <h4 className="font-sans font-bold text-base text-[#141C2B]">{doc.title}</h4>
                     <div className="flex items-center gap-2 mt-0.5">
                       <p className="text-xs text-[#64748B]">{version.fileName} ({version.fileSize || '12.4 MB'})</p>
                       {version.storageFilePath && (

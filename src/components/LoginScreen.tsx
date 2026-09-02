@@ -326,7 +326,7 @@ export const LoginScreen: React.FC = () => {
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold font-serif tracking-tight text-white drop-shadow-md">
+            <h1 className="text-xl sm:text-2xl font-bold font-sans tracking-tight text-white drop-shadow-md">
               MineMind AI
             </h1>
             <span className="text-[10px] font-mono text-amber-300/90 tracking-wider uppercase block">

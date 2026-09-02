@@ -857,7 +857,7 @@ export const CompareVersionsModal: React.FC = () => {
                   </span>
                 )}
               </div>
-              <h3 className="font-serif font-bold text-base sm:text-lg text-white mt-0.5 break-words">
+              <h3 className="font-sans font-bold text-base sm:text-lg text-white mt-0.5 break-words">
                 {isInitialSubmission ? (
                   <>Initial Filing Review: Version 1.0 — {doc.title}</>
                 ) : (
@@ -1021,7 +1021,7 @@ export const CompareVersionsModal: React.FC = () => {
                 <div className="flex items-center justify-between pb-3 border-b border-[#EFEBE2]">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
-                    <span className="font-serif font-bold text-sm text-[#141C2B]">
+                    <span className="font-sans font-bold text-sm text-[#141C2B]">
                       AI Statutory Compliance &amp; Regulatory Audit (DGMS / CMPDI)
                     </span>
                   </div>
@@ -1076,7 +1076,7 @@ export const CompareVersionsModal: React.FC = () => {
               {/* Executive Summary Points */}
               <div className="bg-white p-5 rounded-xl border-2 border-[#C8892E] shadow-xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-[#EFEBE2]">
-                  <div className="flex items-center gap-2 font-serif font-bold text-sm text-[#141C2B]">
+                  <div className="flex items-center gap-2 font-sans font-bold text-sm text-[#141C2B]">
                     <Sparkles className="w-4 h-4 text-[#C8892E]" />
                     <span>Executive Summary &amp; Key Takeaways</span>
                   </div>
@@ -1100,7 +1100,7 @@ export const CompareVersionsModal: React.FC = () => {
               {/* Parameter & Assay Variances */}
               {v2.keyMetrics && v2.keyMetrics.length > 0 && (
                 <div className="bg-white p-5 rounded-xl border border-[#E4E0D6] space-y-3">
-                  <h4 className="font-serif font-bold text-xs text-[#141C2B] flex items-center gap-2">
+                  <h4 className="font-sans font-bold text-xs text-[#141C2B] flex items-center gap-2">
                     <Database className="w-3.5 h-3.5 text-[#C8892E]" />
                     <span>Key Extracted Parameters &amp; Compliance Assays</span>
                   </h4>
@@ -1525,7 +1525,7 @@ export const CompareVersionsModal: React.FC = () => {
                       {showImageOcr && (
                         <div className="bg-[#FAF8F3] border border-[#E4E0D6] rounded-xl p-4 sm:p-5 space-y-3">
                           <div className="flex items-center justify-between border-b border-[#EFEBE2] pb-2">
-                            <h4 className="font-serif font-bold text-sm text-[#141C2B] flex items-center gap-2">
+                            <h4 className="font-sans font-bold text-sm text-[#141C2B] flex items-center gap-2">
                               <Sparkles className="w-4 h-4 text-[#C8892E]" />
                               <span>Extracted Text &amp; Optical Catalog</span>
                             </h4>
@@ -2581,7 +2581,7 @@ export const CompareVersionsModal: React.FC = () => {
         <div className="fixed inset-0 bg-black/70 z-60 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-lg w-full p-5 space-y-4 shadow-2xl border border-[#E4E0D6] animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-2 border-b border-[#EFEBE2]">
-              <h4 className="font-serif font-bold text-sm text-[#141C2B] flex items-center gap-2">
+              <h4 className="font-sans font-bold text-sm text-[#141C2B] flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-[#C8892E]" />
                 <span>Request Revision from Officer ({v2.uploadedBy.name})</span>
               </h4>

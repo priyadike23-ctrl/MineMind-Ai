@@ -85,28 +85,28 @@ export const AdminDashboard: React.FC = () => {
   return (
     <div id="admin-dashboard" className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 max-w-7xl mx-auto">
       {/* Priority-Sorted Approval Summary Card (Compact & Streamlined) */}
-      <div className="bg-white border border-[#E4E0D6] rounded-xl p-4 sm:p-5 shadow-xs space-y-3.5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#EFEBE2]">
+      <div className="bg-white border border-[#D1DCE5] rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center gap-1.5 text-xs font-mono text-[#C8892E] font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-xs font-mono text-[#D97706] font-bold uppercase tracking-wider">
               <span>Approval Queue</span>
               <span>·</span>
             </div>
-            <h2 className="font-serif font-bold text-lg sm:text-xl text-[#141C2B]">
+            <h2 className="font-sans font-bold text-lg sm:text-xl text-[#0B2238]">
               {pendingApprovals.length} Pending Approvals
             </h2>
             <div className="flex items-center gap-1.5 ml-1">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-pulse" />
                 <span>{urgentCount} Urgent</span>
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#EAB308]" />
                 <span>{normalCount} Normal</span>
               </span>
               {routineCount > 0 && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#ECFDF5] text-[#047857] border border-[#A7F3D0]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
                   <span>{routineCount} Routine</span>
                 </span>
               )}
@@ -115,46 +115,21 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <button
-              id="btn-admin-quick-demo-mismatch"
-              onClick={() => {
-                setActiveView('approval-queue');
-                setTimeout(() => {
-                  const targetElement = document.getElementById('queue-item-doc-cmpdi-hq-984') || 
-                                       document.getElementById('queue-item-ver_cmpdi_hq_984_01') ||
-                                       document.querySelector('[data-doc-code*="CMPDI HQ-984"]') ||
-                                       document.querySelector('[data-doc-code*="HQ-984"]');
-                  if (targetElement) {
-                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    targetElement.classList.add('ring-4', 'ring-[#DC2626]', 'ring-offset-2', 'transition-all', 'duration-500');
-                    setTimeout(() => {
-                      targetElement.classList.remove('ring-4', 'ring-[#DC2626]', 'ring-offset-2');
-                    }, 3500);
-                  }
-                }, 150);
-              }}
-              className="px-2.5 py-1.5 rounded-lg bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-              title="Shortcut: Jump directly to Category Mismatch item"
-            >
-              <Play className="w-3 h-3 fill-current" />
-              <span>Demo Mismatch</span>
-            </button>
-
-            <button
               id="btn-admin-bulk-routine"
               onClick={() => bulkApproveRoutine()}
-              className="px-2.5 py-1.5 rounded-lg bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#16A34A] border border-[#BBF7D0] text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+              className="px-3 py-1.5 rounded-xl bg-[#ECFDF5] hover:bg-[#DCFCE7] text-[#047857] border border-[#A7F3D0] text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
               title="Bulk sign-off routine items"
             >
-              <Zap className="w-3 h-3 text-[#16A34A]" />
+              <Zap className="w-3.5 h-3.5 text-[#047857]" />
               <span>Bulk Routine ({routineCount})</span>
             </button>
 
             <button
               id="btn-admin-view-all-queue"
               onClick={() => setActiveView('approval-queue')}
-              className="px-3 py-1.5 rounded-lg bg-[#141C2B] hover:bg-[#1E293B] text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-[#00529B] hover:bg-[#0B2238] text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
-              <CheckSquare className="w-3.5 h-3.5 text-[#C8892E]" />
+              <CheckSquare className="w-3.5 h-3.5 text-white" />
               <span>Open Queue ({pendingApprovals.length})</span>
             </button>
           </div>
@@ -233,7 +208,7 @@ export const AdminDashboard: React.FC = () => {
             <span className="text-xs font-medium">Total Governed Documents</span>
             <FileText className="w-4 h-4 text-[#C8892E]" />
           </div>
-          <div className="font-serif font-bold text-3xl text-[#141C2B]">
+          <div className="font-sans font-bold text-3xl text-[#141C2B]">
             {documents.length}
           </div>
           <div className="text-[11px] text-[#64748B] font-mono mt-1">Across 8 subsidiaries</div>
@@ -245,7 +220,7 @@ export const AdminDashboard: React.FC = () => {
             <span className="text-xs font-medium">Revisions This Month</span>
             <Layers className="w-4 h-4 text-[#2563EB]" />
           </div>
-          <div className="font-serif font-bold text-3xl text-[#141C2B]">
+          <div className="font-sans font-bold text-3xl text-[#141C2B]">
             4
           </div>
           <div className="text-[11px] text-[#4C7A52] font-medium mt-1">+33% vs last quarter</div>
@@ -257,7 +232,7 @@ export const AdminDashboard: React.FC = () => {
             <span className="text-xs font-medium">Pending Approvals</span>
             <Clock className="w-4 h-4 text-[#EAB308]" />
           </div>
-          <div className="font-serif font-bold text-3xl text-[#EAB308]">
+          <div className="font-sans font-bold text-3xl text-[#EAB308]">
             {pendingApprovals.length}
           </div>
           <div className="text-[11px] text-[#EF4444] font-medium mt-1">{urgentCount} requires urgent review</div>
@@ -269,7 +244,7 @@ export const AdminDashboard: React.FC = () => {
             <span className="text-xs font-medium">Reports Generated</span>
             <FileText className="w-4 h-4 text-[#4C7A52]" />
           </div>
-          <div className="font-serif font-bold text-3xl text-[#141C2B]">
+          <div className="font-sans font-bold text-3xl text-[#141C2B]">
             {reports.length}
           </div>
           <div className="text-[11px] text-[#64748B] font-mono mt-1">100% cited citations</div>
@@ -288,7 +263,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-serif font-bold text-base text-[#141C2B]">
+                <h3 className="font-sans font-bold text-base text-[#141C2B]">
                   Impact Metrics
                 </h3>
                 <span className="text-[10px] font-mono uppercase tracking-wider font-bold bg-[#C8892E]/10 text-[#C8892E] px-2 py-0.5 rounded">
@@ -328,7 +303,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-[#EFEBE2]">
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-[#C8892E]" />
-                <h4 className="font-serif font-bold text-sm text-[#141C2B]">
+                <h4 className="font-sans font-bold text-sm text-[#141C2B]">
                   Impact Metrics Data Lineage &amp; Mathematical Formulation
                 </h4>
               </div>
@@ -419,7 +394,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div>
-              <div className="font-serif font-bold text-3xl sm:text-4xl text-[#141C2B] tracking-tight">
+              <div className="font-sans font-bold text-3xl sm:text-4xl text-[#141C2B] tracking-tight">
                 {measuredTurnaroundDays} <span className="text-sm font-sans font-normal text-[#64748B]">days</span>
               </div>
               <div className="text-[11px] text-[#64748B] font-mono mt-1 flex items-center gap-1">
@@ -468,7 +443,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div>
-              <div className="font-serif font-bold text-3xl sm:text-4xl text-[#141C2B] tracking-tight">
+              <div className="font-sans font-bold text-3xl sm:text-4xl text-[#141C2B] tracking-tight">
                 {avgExtractionAccuracy}%
               </div>
               <div className="text-[11px] text-[#64748B] font-mono mt-1">
@@ -497,7 +472,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div>
-              <div className="font-serif font-bold text-3xl sm:text-4xl text-[#141C2B] tracking-tight">
+              <div className="font-sans font-bold text-3xl sm:text-4xl text-[#141C2B] tracking-tight">
                 {automationRateValue}%
               </div>
               <div className="text-[11px] text-[#64748B] font-mono mt-1">
@@ -513,7 +488,7 @@ export const AdminDashboard: React.FC = () => {
         <div>
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#EFEBE2]">
             <div>
-              <h3 className="font-serif font-bold text-base text-[#141C2B]">
+              <h3 className="font-sans font-bold text-base text-[#141C2B]">
                 Knowledge Topic Distribution
               </h3>
               <p className="text-[11px] text-[#64748B]">

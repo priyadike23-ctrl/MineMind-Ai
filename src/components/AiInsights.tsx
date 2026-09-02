@@ -225,7 +225,7 @@ export const AiInsights: React.FC = () => {
             <Sparkles className="w-4 h-4 text-[#C8892E]" />
             <span>Semantic Intelligence & Knowledge Topology</span>
           </div>
-          <h2 className="font-serif font-bold text-2xl text-white">
+          <h2 className="font-sans font-bold text-2xl text-white">
             AI Insights & Topic Coverage
           </h2>
           <p className="text-xs text-[#94A3B8] mt-1">
@@ -245,7 +245,7 @@ export const AiInsights: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#C8892E] animate-pulse"></span>
-              <h3 className="font-serif font-bold text-base text-[#141C2B] flex items-center gap-2">
+              <h3 className="font-sans font-bold text-base text-[#141C2B] flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-[#C8892E]" />
                 <span>Knowledge Distribution & Volume by Document Type</span>
               </h3>
@@ -389,7 +389,7 @@ export const AiInsights: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></span>
-              <h3 className="font-serif font-bold text-base text-[#141C2B]">
+              <h3 className="font-sans font-bold text-base text-[#141C2B]">
                 Topic & Keyword Clusters by Document Type
               </h3>
             </div>
@@ -484,7 +484,7 @@ export const AiInsights: React.FC = () => {
       <div className="bg-white border border-[#E4E0D6] rounded-xl p-6 shadow-xs space-y-4 relative z-0 overflow-visible">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#EFEBE2] gap-2">
           <div>
-            <h3 className="font-serif font-bold text-base text-[#141C2B] flex items-center gap-2">
+            <h3 className="font-sans font-bold text-base text-[#141C2B] flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#C8892E]" />
               <span>Document Type Ingestion & Exploration Frequency (Monthly Aggregation: Apr 2025 – Feb 2026)</span>
             </h3>
@@ -547,7 +547,7 @@ export const AiInsights: React.FC = () => {
       <div className="bg-white border border-[#E4E0D6] rounded-xl p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#EFEBE2] gap-2">
           <div>
-            <h3 className="font-serif font-bold text-base text-[#141C2B] flex items-center gap-2">
+            <h3 className="font-sans font-bold text-base text-[#141C2B] flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-[#C8892E]" />
               <span>Frequently Asked Inquiries & Stale-Answer Detection</span>
             </h3>

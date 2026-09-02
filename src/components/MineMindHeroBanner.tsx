@@ -366,7 +366,7 @@ export const MineMindHeroBanner: React.FC = () => {
         {/* Brand Name Typography */}
         <div className="text-center mt-3 sm:mt-4 space-y-1">
           <div className="flex items-center justify-center gap-2">
-            <h1 className="font-serif font-extrabold text-2xl sm:text-3xl tracking-widest text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]">
+            <h1 className="font-sans font-extrabold text-2xl sm:text-3xl tracking-widest text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]">
               MINEMIND <span className="text-[#38BDF8]">AI</span>
             </h1>
           </div>
@@ -380,7 +380,7 @@ export const MineMindHeroBanner: React.FC = () => {
       {/* 2. CENTER HEADLINES */}
       {/* ============================================================ */}
       <div className="relative z-10 text-center my-auto py-6 sm:py-8 space-y-2">
-        <h2 className="font-serif font-black text-2xl sm:text-3xl lg:text-4xl text-white tracking-tight leading-tight uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
+        <h2 className="font-sans font-black text-2xl sm:text-3xl lg:text-4xl text-white tracking-tight leading-tight uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
           SECURE INTELLIGENCE <br />
           <span className="text-[#F1F5F9]">PORTAL</span>
         </h2>

@@ -138,7 +138,7 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div id="minemind-root-layout" className="flex h-screen w-full bg-[#F7F5F0] overflow-hidden">
+    <div id="minemind-root-layout" className="flex h-screen w-full bg-[#F0F4F8] overflow-hidden">
       {/* Fixed Left Sidebar */}
       <Sidebar />
 
@@ -148,7 +148,7 @@ const MainLayout: React.FC = () => {
         <Header />
 
         {/* Dynamic View Canvas */}
-        <main className="flex-1 overflow-y-auto bg-[#F7F5F0]">
+        <main className="flex-1 overflow-y-auto bg-[#F0F4F8]">
           {renderActiveView()}
         </main>
       </div>

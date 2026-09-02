@@ -911,31 +911,44 @@ export const ReportGenerator: React.FC = () => {
   };
 
   return (
-    <div id="report-generator-view" className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-7 max-w-7xl mx-auto">
-      {/* View Switcher Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E4E0D6] pb-3">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+    <div id="report-generator-view" className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 max-w-7xl mx-auto">
+      {/* Top Banner Header & View Switcher */}
+      <div className="bg-white text-[#0B2238] border border-[#D1DCE5] rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-mono text-[#D97706] font-bold uppercase tracking-wider mb-1">
+            <Sparkles className="w-4 h-4 text-[#D97706]" />
+            <span>AUTOMATED STATUTORY DOSSIERS & BRIEFINGS</span>
+          </div>
+          <h2 className="font-sans font-bold text-xl sm:text-2xl text-[#0B2238]">
+            Statutory AI Report Generator
+          </h2>
+          <p className="text-xs text-[#64748B] mt-1 font-medium max-w-2xl">
+            Auto-synthesize DGMS compliance memos, variance reports, and geological assessments with 100% grounded source citations.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
           <button
             onClick={() => setActiveTab('create')}
-            className={`px-3 sm:px-4 py-2 text-xs font-serif font-bold rounded-lg transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
               activeTab === 'create'
-                ? 'bg-[#141C2B] text-white shadow-xs'
-                : 'text-[#64748B] hover:text-[#141C2B] bg-white border border-[#E4E0D6]'
+                ? 'bg-[#D97706] hover:bg-[#B45309] text-white'
+                : 'text-[#0B2238] hover:bg-[#F0F4F8] bg-white border border-[#CBD5E1]'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#C8892E]" />
+            <Sparkles className="w-3.5 h-3.5" />
             <span>Generate Report</span>
           </button>
 
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-3 sm:px-4 py-2 text-xs font-serif font-bold rounded-lg transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
               activeTab === 'history'
-                ? 'bg-[#141C2B] text-white shadow-xs'
-                : 'text-[#64748B] hover:text-[#141C2B] bg-white border border-[#E4E0D6]'
+                ? 'bg-[#0B2238] text-white'
+                : 'text-[#0B2238] hover:bg-[#F0F4F8] bg-white border border-[#CBD5E1]'
             }`}
           >
-            <FileText className="w-3.5 h-3.5 text-[#C8892E]" />
+            <FileText className="w-3.5 h-3.5 text-[#00529B]" />
             <span>Archive ({reports.length})</span>
           </button>
         </div>
@@ -944,7 +957,7 @@ export const ReportGenerator: React.FC = () => {
       {activeTab === 'create' ? (
         <div className="space-y-5 sm:space-y-6">
           {/* Stepper Header (1 to 5) */}
-          <div className="bg-white border border-[#E4E0D6] rounded-xl p-2.5 sm:p-4 shadow-xs">
+          <div className="bg-white border border-[#D1DCE5] rounded-2xl p-2.5 sm:p-3 shadow-xs">
             <div className="grid grid-cols-5 gap-1 sm:gap-2 text-center text-[10px] sm:text-xs font-mono">
               {[
                 { num: 1, label: 'Request', short: '1. Ask' },
@@ -968,12 +981,12 @@ export const ReportGenerator: React.FC = () => {
                         sounds.playClick();
                       }
                     }}
-                    className={`p-1.5 sm:p-2 rounded-lg transition-all ${
+                    className={`py-2 px-2.5 rounded-xl transition-all ${
                       isCurrent
-                        ? 'bg-[#141C2B] text-[#C8892E] font-bold shadow-xs cursor-default'
+                        ? 'bg-[#00529B] text-white font-bold shadow-xs cursor-default'
                         : isCompleted
-                          ? 'bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#16A34A] font-semibold cursor-pointer'
-                          : 'text-[#94A3B8] bg-[#FAF8F3] opacity-60 cursor-not-allowed'
+                          ? 'bg-[#ECFDF5] hover:bg-[#DCFCE7] text-[#047857] border border-[#A7F3D0] font-bold cursor-pointer'
+                          : 'text-[#64748B] bg-[#F8FAFC] opacity-75 cursor-not-allowed'
                     }`}
                   >
                     <span className="hidden sm:inline">{s.num}. {s.label}</span>
@@ -986,14 +999,14 @@ export const ReportGenerator: React.FC = () => {
 
           {/* Draft from AI Alert if loaded */}
           {reportDraftFromAi && (
-            <div className="bg-[#FAF8F3] border border-[#C8892E] p-4 rounded-xl flex items-center justify-between text-xs text-[#141C2B]">
+            <div className="bg-[#FFFBEB] border border-[#FDE68A] p-4 rounded-2xl flex items-center justify-between text-xs text-[#0B2238] shadow-xs">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#C8892E]" />
+                <Sparkles className="w-4 h-4 text-[#D97706]" />
                 <span>Incorporating finding from AI Assistant query with <strong>{reportDraftFromAi.citations.length} verified citations</strong>.</span>
               </div>
               <button
                 onClick={() => setReportDraftFromAi(null)}
-                className="text-[11px] text-[#64748B] underline hover:text-[#141C2B]"
+                className="text-[11px] text-[#64748B] underline hover:text-[#0B2238] cursor-pointer"
               >
                 Dismiss Draft
               </button>
@@ -1004,15 +1017,15 @@ export const ReportGenerator: React.FC = () => {
           {currentStep === 1 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* A. AI Report Request */}
-              <div className="bg-white border border-[#E4E0D6] rounded-xl p-6 shadow-xs space-y-4 flex flex-col">
-                <div className="pb-3 border-b border-[#EFEBE2]">
+              <div className="bg-white border border-[#D1DCE5] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4 flex flex-col">
+                <div className="pb-3 border-b border-[#E2E8F0]">
                   <div className="flex items-center gap-2">
-                    <Wand2 className="w-4 h-4 text-[#C8892E]" />
-                    <h3 className="font-serif font-bold text-lg text-[#141C2B]">
+                    <Wand2 className="w-4 h-4 text-[#00529B]" />
+                    <h3 className="font-sans font-bold text-base text-[#0B2238]">
                       A. AI Report Request
                     </h3>
                   </div>
-                  <p className="text-xs text-[#64748B] mt-1">
+                  <p className="text-xs text-[#64748B] mt-1 font-medium">
                     Describe your requirement in plain language — the AI will read the request, resolve the subsidiary, period, and metrics, then locate the right sources for you.
                   </p>
                 </div>
@@ -1025,7 +1038,7 @@ export const ReportGenerator: React.FC = () => {
                   placeholder='Describe your requirement...
 
 "Generate a monthly production report for SECL for August 2026."'
-                  className="w-full text-sm p-3.5 rounded-lg border border-[#E4E0D6] focus:border-[#C8892E] focus:ring-0 outline-none resize-none bg-[#FAF8F3]"
+                  className="w-full text-xs sm:text-sm p-3.5 rounded-xl border border-[#CBD5E1] focus:border-[#00529B] focus:ring-0 outline-none resize-none bg-[#F8FAFC] text-[#0B2238] placeholder:text-[#94A3B8]"
                 />
 
                 <div className="flex flex-wrap gap-1.5">
@@ -1034,7 +1047,7 @@ export const ReportGenerator: React.FC = () => {
                       key={ex}
                       type="button"
                       onClick={() => setAiFreeformRequest(ex)}
-                      className="text-[10px] font-mono px-2 py-1 rounded-full bg-[#EFEBE2] hover:bg-[#D4CEBF] text-[#64748B] transition-colors cursor-pointer"
+                      className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#F0F4F8] hover:bg-[#E2E8F0] text-[#0B2238] border border-[#CBD5E1] transition-colors cursor-pointer"
                     >
                       {ex.length > 46 ? `${ex.slice(0, 46)}…` : ex}
                     </button>
@@ -1045,24 +1058,24 @@ export const ReportGenerator: React.FC = () => {
                   <button
                     disabled={!aiFreeformRequest.trim()}
                     onClick={handleSubmitAiRequest}
-                    className="w-full px-6 py-3 bg-[#141C2B] disabled:opacity-50 text-white text-xs font-bold rounded-lg hover:bg-[#1E293B] flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                    className="w-full px-6 py-3 bg-[#00529B] hover:bg-[#0B2238] disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all"
                   >
-                    <Sparkles className="w-4 h-4 text-[#C8892E]" />
+                    <Sparkles className="w-4 h-4 text-white" />
                     <span>Generate Report with AI</span>
                   </button>
                 </div>
               </div>
 
               {/* B. Select Official Template */}
-              <div className="bg-white border border-[#E4E0D6] rounded-xl p-6 shadow-xs space-y-4">
-                <div className="pb-3 border-b border-[#EFEBE2]">
+              <div className="bg-white border border-[#D1DCE5] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+                <div className="pb-3 border-b border-[#E2E8F0]">
                   <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-[#C8892E]" />
-                    <h3 className="font-serif font-bold text-lg text-[#141C2B]">
+                    <Layers className="w-4 h-4 text-[#00529B]" />
+                    <h3 className="font-sans font-bold text-base text-[#0B2238]">
                       B. Select Official Template
                     </h3>
                   </div>
-                  <p className="text-xs text-[#64748B] mt-1">
+                  <p className="text-xs text-[#64748B] mt-1 font-medium">
                     Prefer a standardized statutory format instead? Pick a template and the AI will still resolve the current period and sources for you.
                   </p>
                 </div>
@@ -1072,11 +1085,11 @@ export const ReportGenerator: React.FC = () => {
                     <div
                       key={tmpl.id}
                       onClick={() => handleSelectTemplate(tmpl)}
-                      className="p-3.5 rounded-xl border border-[#E4E0D6] hover:border-[#C8892E] hover:bg-[#FAF8F3] bg-white cursor-pointer transition-all"
+                      className="p-3.5 rounded-xl border border-[#CBD5E1] hover:border-[#00529B] hover:bg-[#F8FAFC] bg-white cursor-pointer transition-all"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-serif font-bold text-sm text-[#141C2B]">{tmpl.title}</span>
-                        <ArrowRight className="w-4 h-4 text-[#94A3B8]" />
+                        <span className="font-sans font-bold text-xs sm:text-sm text-[#0B2238]">{tmpl.title}</span>
+                        <ArrowRight className="w-4 h-4 text-[#64748B]" />
                       </div>
                       <p className="text-xs text-[#64748B] leading-relaxed">
                         {tmpl.description}
@@ -1087,14 +1100,14 @@ export const ReportGenerator: React.FC = () => {
                   {/* Custom Report */}
                   <div
                     onClick={handleSelectCustomReport}
-                    className="p-3.5 rounded-xl border border-dashed border-[#D4CEBF] hover:border-[#C8892E] hover:bg-[#FAF8F3] bg-white cursor-pointer transition-all"
+                    className="p-3.5 rounded-xl border border-dashed border-[#CBD5E1] hover:border-[#00529B] hover:bg-[#F8FAFC] bg-white cursor-pointer transition-all"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-serif font-bold text-sm text-[#141C2B] flex items-center gap-1.5">
-                        <Bot className="w-3.5 h-3.5 text-[#C8892E]" />
+                      <span className="font-sans font-bold text-xs sm:text-sm text-[#0B2238] flex items-center gap-1.5">
+                        <Bot className="w-3.5 h-3.5 text-[#00529B]" />
                         Custom Report
                       </span>
-                      <ArrowRight className="w-4 h-4 text-[#94A3B8]" />
+                      <ArrowRight className="w-4 h-4 text-[#64748B]" />
                     </div>
                     <p className="text-xs text-[#64748B] leading-relaxed">
                       Not one of the above? Describe it to the AI in the chat box and it will build a custom scope for you.
@@ -1107,12 +1120,12 @@ export const ReportGenerator: React.FC = () => {
 
           {/* Step 2: AI Understands the Request */}
           {currentStep === 2 && (
-            <div className="bg-white border border-[#E4E0D6] rounded-xl p-6 shadow-xs space-y-5">
-              <div className="pb-3 border-b border-[#EFEBE2] flex items-center justify-between">
+            <div className="bg-white border border-[#D1DCE5] rounded-2xl p-5 sm:p-6 shadow-xs space-y-5">
+              <div className="pb-3 border-b border-[#E2E8F0] flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-[#C8892E]" />
+                  <Brain className="w-4 h-4 text-[#00529B]" />
                   <div>
-                    <h3 className="font-serif font-bold text-lg text-[#141C2B]">
+                    <h3 className="font-sans font-bold text-base text-[#0B2238]">
                       AI Understands the Request
                     </h3>
                     <p className="text-xs text-[#64748B]">
@@ -1300,7 +1313,7 @@ export const ReportGenerator: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Search className="w-4 h-4 text-[#C8892E]" />
                   <div>
-                    <h3 className="font-serif font-bold text-lg text-[#141C2B]">
+                    <h3 className="font-sans font-bold text-lg text-[#141C2B]">
                       AI Data Discovery
                     </h3>
                     <p className="text-xs text-[#64748B]">
@@ -1427,7 +1440,7 @@ export const ReportGenerator: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <ClipboardCheck className="w-4 h-4 text-[#C8892E]" />
                   <div>
-                    <h3 className="font-serif font-bold text-lg text-[#141C2B]">
+                    <h3 className="font-sans font-bold text-lg text-[#141C2B]">
                       AI Validation
                     </h3>
                     <p className="text-xs text-[#64748B]">Cross-checking selected sources before synthesis begins.</p>
@@ -1580,7 +1593,7 @@ export const ReportGenerator: React.FC = () => {
                     {/* Official masthead */}
                     <div className="text-center pb-4 border-b-2 border-[#141C2B]">
                       <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#64748B]">Coal India Limited</div>
-                      <h2 className="font-serif font-bold text-xl sm:text-2xl text-[#141C2B] uppercase mt-1">
+                      <h2 className="font-sans font-bold text-xl sm:text-2xl text-[#141C2B] uppercase mt-1">
                         {generatedReport.title}
                       </h2>
                       <div className="text-xs text-[#64748B] flex items-center justify-center gap-4 mt-2 font-mono flex-wrap">
@@ -1764,7 +1777,7 @@ export const ReportGenerator: React.FC = () => {
                     <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs space-y-4 sticky top-4">
                       <div className="flex items-center gap-2 pb-3 border-b border-[#EFEBE2]">
                         <ShieldCheck className="w-4 h-4 text-[#4C7A52]" />
-                        <h3 className="font-serif font-bold text-sm text-[#141C2B]">AI Review</h3>
+                        <h3 className="font-sans font-bold text-sm text-[#141C2B]">AI Review</h3>
                       </div>
 
                       <div className="space-y-2.5 text-xs">
@@ -1855,7 +1868,7 @@ export const ReportGenerator: React.FC = () => {
         /* Compiled Reports History Tab */
         <div className="bg-white border border-[#E4E0D6] rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-[#EFEBE2] flex items-center justify-between">
-            <h3 className="font-serif font-bold text-base text-[#141C2B]">
+            <h3 className="font-sans font-bold text-base text-[#141C2B]">
               Historical Directorate Briefings & Generated Reports
             </h3>
             <span className="text-xs font-mono text-[#64748B]">{reports.length} archived reports</span>

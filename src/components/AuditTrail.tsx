@@ -98,7 +98,7 @@ export const AuditTrail: React.FC = () => {
             <ShieldCheck className="w-4 h-4 text-[#4C7A52]" />
             <span>Enterprise Security & Statutory Traceability</span>
           </div>
-          <h2 className="font-serif font-bold text-2xl text-white">
+          <h2 className="font-sans font-bold text-2xl text-white">
             Immutable Activity & Security Threat Audit
           </h2>
           <p className="text-xs text-[#94A3B8] mt-1">
@@ -154,7 +154,7 @@ export const AuditTrail: React.FC = () => {
                 <span>AUTHENTICATION SHIELD</span>
                 <KeyRound className="w-4 h-4 text-[#16A34A]" />
               </div>
-              <div className="text-xl font-bold font-serif text-[#141C2B]">WebCrypto SHA-256</div>
+              <div className="text-xl font-bold font-sans text-[#141C2B]">WebCrypto SHA-256</div>
               <div className="text-[11px] text-[#475569] mt-1 flex items-center gap-1 font-mono">
                 <span className="w-2 h-2 rounded-full bg-[#16A34A]"></span>
                 Salted Hashing + 5-Round Key Strengthening
@@ -166,7 +166,7 @@ export const AuditTrail: React.FC = () => {
                 <span>RATE LIMITER & BRUTE FORCE</span>
                 <Activity className="w-4 h-4 text-[#C8892E]" />
               </div>
-              <div className="text-xl font-bold font-serif text-[#141C2B]">Active (120 req/m)</div>
+              <div className="text-xl font-bold font-sans text-[#141C2B]">Active (120 req/m)</div>
               <div className="text-[11px] text-[#475569] mt-1 flex items-center gap-1 font-mono">
                 <span className="w-2 h-2 rounded-full bg-[#16A34A]"></span>
                 5 Failed Attempts Lockout (10m duration)
@@ -178,7 +178,7 @@ export const AuditTrail: React.FC = () => {
                 <span>IDOR & ROLE BOUNDARIES</span>
                 <Lock className="w-4 h-4 text-[#2563EB]" />
               </div>
-              <div className="text-xl font-bold font-serif text-[#141C2B]">Strict RBAC Gated</div>
+              <div className="text-xl font-bold font-sans text-[#141C2B]">Strict RBAC Gated</div>
               <div className="text-[11px] text-[#475569] mt-1 flex items-center gap-1 font-mono">
                 <span className="w-2 h-2 rounded-full bg-[#16A34A]"></span>
                 Subsidiary Boundary + Owner Validation
@@ -190,7 +190,7 @@ export const AuditTrail: React.FC = () => {
                 <span>ACTIVE SESSION INTEGRITY</span>
                 <Clock className="w-4 h-4 text-[#7C3AED]" />
               </div>
-              <div className="text-xl font-bold font-serif text-[#141C2B]">
+              <div className="text-xl font-bold font-sans text-[#141C2B]">
                 {activeSecureSession ? 'Authenticated' : 'Offline'}
               </div>
               <div className="text-[11px] text-[#475569] mt-1 font-mono">
@@ -204,7 +204,7 @@ export const AuditTrail: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#EFEBE2] pb-3 mb-4">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-[#DC2626]" />
-                <h3 className="font-serif font-bold text-base text-[#141C2B]">
+                <h3 className="font-sans font-bold text-base text-[#141C2B]">
                   Security Anomaly & Access Incident Log
                 </h3>
               </div>
@@ -371,7 +371,7 @@ export const AuditTrail: React.FC = () => {
                       <td className="py-3.5 px-4 max-w-[200px]">
                         {log.documentTitle ? (
                           <div>
-                            <span className="font-serif font-bold text-xs text-[#141C2B] line-clamp-1">
+                            <span className="font-sans font-bold text-xs text-[#141C2B] line-clamp-1">
                               {log.documentTitle}
                             </span>
                             {log.versionNumber && (
@@ -404,7 +404,7 @@ export const AuditTrail: React.FC = () => {
                         <td colSpan={7} className="p-4 border-b border-[#E4E0D6]">
                           <div className="bg-white border border-[#E4E0D6] rounded-xl p-4 space-y-3 shadow-xs">
                             <div className="flex items-center justify-between border-b border-[#EFEBE2] pb-2">
-                              <h4 className="font-serif font-bold text-sm text-[#141C2B] flex items-center gap-2">
+                              <h4 className="font-sans font-bold text-sm text-[#141C2B] flex items-center gap-2">
                                 <ShieldAlert className="w-4 h-4 text-[#C8892E]" />
                                 <span>Audit Event Forensic Breakdown</span>
                               </h4>

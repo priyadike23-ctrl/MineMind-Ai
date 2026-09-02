@@ -174,7 +174,7 @@ export const ApprovalQueue: React.FC = () => {
             <ShieldCheck className="w-4 h-4 text-[#4C7A52]" />
             <span>CMPDI Central Directorate Governance & Verification</span>
           </div>
-          <h2 className="font-serif font-bold text-2xl text-white">
+          <h2 className="font-sans font-bold text-2xl text-white">
             Central Governance & Approval Queue
           </h2>
           <p className="text-xs text-[#94A3B8] mt-1">
@@ -202,7 +202,7 @@ export const ApprovalQueue: React.FC = () => {
       <div className="flex border-b border-[#E4E0D6] gap-2 overflow-x-auto">
         <button
           onClick={() => setActiveQueueTab('pending')}
-          className={`pb-3 px-4 font-serif text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+          className={`pb-3 px-4 font-sans text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
             activeQueueTab === 'pending'
               ? 'border-[#141C2B] text-[#141C2B]'
               : 'border-transparent text-[#64748B] hover:text-[#141C2B]'
@@ -219,7 +219,7 @@ export const ApprovalQueue: React.FC = () => {
 
         <button
           onClick={() => setActiveQueueTab('access-requests')}
-          className={`pb-3 px-4 font-serif text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+          className={`pb-3 px-4 font-sans text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
             activeQueueTab === 'access-requests'
               ? 'border-[#141C2B] text-[#141C2B]'
               : 'border-transparent text-[#64748B] hover:text-[#141C2B]'
@@ -366,7 +366,7 @@ export const ApprovalQueue: React.FC = () => {
           {/* Pending Submissions List */}
           <div className="bg-white border border-[#E4E0D6] rounded-xl overflow-hidden shadow-xs">
             <div className="p-4 border-b border-[#EFEBE2] flex items-center justify-between">
-              <h3 className="font-serif font-bold text-base text-[#141C2B]">
+              <h3 className="font-sans font-bold text-base text-[#141C2B]">
                 Pending Submissions for Re-Indexing
               </h3>
               <span className="text-xs font-mono text-[#64748B]">
@@ -377,7 +377,7 @@ export const ApprovalQueue: React.FC = () => {
             {filteredPendingQueue.length === 0 ? (
               <div className="p-12 text-center bg-[#FAF8F3]">
                 <CheckSquare className="w-10 h-10 text-[#16A34A] mx-auto mb-2" />
-                <h4 className="font-serif font-bold text-base text-[#141C2B]">All Submissions Verified</h4>
+                <h4 className="font-sans font-bold text-base text-[#141C2B]">All Submissions Verified</h4>
                 <p className="text-xs text-[#64748B] mt-1">
                   There are no pending documents in the approval queue for the selected filters.
                 </p>
@@ -451,7 +451,7 @@ export const ApprovalQueue: React.FC = () => {
                             </span>
                           </div>
 
-                          <h4 className="font-serif font-bold text-base text-[#141C2B]">
+                          <h4 className="font-sans font-bold text-base text-[#141C2B]">
                             {doc.title}
                           </h4>
 
@@ -628,7 +628,7 @@ export const ApprovalQueue: React.FC = () => {
           <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#EFEBE2]">
               <div>
-                <h3 className="font-serif font-bold text-lg text-[#141C2B]">
+                <h3 className="font-sans font-bold text-lg text-[#141C2B]">
                   Organizational Access Requests & Verification
                 </h3>
                 <p className="text-xs text-[#64748B] mt-0.5">
@@ -646,7 +646,7 @@ export const ApprovalQueue: React.FC = () => {
             {accessRequests.length === 0 ? (
               <div className="p-12 text-center bg-[#FAF8F3]">
                 <Users className="w-10 h-10 text-[#64748B] mx-auto mb-2" />
-                <h4 className="font-serif font-bold text-base text-[#141C2B]">No Access Requests</h4>
+                <h4 className="font-sans font-bold text-base text-[#141C2B]">No Access Requests</h4>
                 <p className="text-xs text-[#64748B] mt-1">
                   There are currently no access requests recorded in the system.
                 </p>
@@ -677,7 +677,7 @@ export const ApprovalQueue: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <h4 className="font-serif font-bold text-base text-[#141C2B]">
+                        <h4 className="font-sans font-bold text-base text-[#141C2B]">
                           {req.name}
                         </h4>
                         <span className="text-xs text-[#64748B]">({req.designation})</span>
@@ -758,7 +758,7 @@ export const ApprovalQueue: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-[#E4E0D6] space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#EFEBE2]">
-              <h3 className="font-serif font-bold text-lg text-[#DC2626] flex items-center gap-2">
+              <h3 className="font-sans font-bold text-lg text-[#DC2626] flex items-center gap-2">
                 <UserX className="w-5 h-5" />
                 <span>Reject Access Request</span>
               </h3>
@@ -806,7 +806,7 @@ export const ApprovalQueue: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-[#E4E0D6] space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#EFEBE2]">
-              <h3 className="font-serif font-bold text-lg text-[#141C2B] capitalize">
+              <h3 className="font-sans font-bold text-lg text-[#141C2B] capitalize">
                 {actionModalType === 'approve' && 'Approve & Re-Index Revision'}
                 {actionModalType === 'reject' && 'Reject Technical Submission'}
                 {actionModalType === 'changes' && 'Request Revision Changes'}

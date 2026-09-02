@@ -84,20 +84,23 @@ export const Sidebar: React.FC = () => {
 
       <aside 
         id="minemind-sidebar" 
-        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-[#141C2B] text-[#EFEBE2] flex flex-col flex-shrink-0 border-r border-[#1E293B] select-none h-screen transition-transform duration-300 ease-in-out md:static md:w-64 md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-[#0A1B2E] text-[#EFEBE2] flex flex-col flex-shrink-0 border-r border-[#1E3A5F] select-none h-screen transition-transform duration-300 ease-in-out md:static md:w-64 md:translate-x-0 ${
           isMobileNavOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-4 sm:p-5 border-b border-[#1E293B] bg-[#0E1522] flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-[#1E3A5F] bg-[#081524] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#C8892E] to-[#8E5D18] flex items-center justify-center shadow-inner text-[#141C2B] font-serif font-black text-xl flex-shrink-0">
-              M
+            <div className="w-9 h-9 rounded-lg bg-[#D97706] flex items-center justify-center shadow-md text-white font-sans font-black text-sm tracking-tighter flex-shrink-0 border border-[#F59E0B]">
+              CIL
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="font-serif font-bold text-base sm:text-lg tracking-tight text-white">MINEMIND <span className="text-[#C8892E]">AI</span></h1>
+                <h1 className="font-sans font-bold text-sm sm:text-base tracking-tight text-white">MINEMIND <span className="text-[#F59E0B]">AI</span></h1>
               </div>
+              <p className="text-[10px] text-[#94A3B8] italic font-medium leading-tight mt-0.5">
+                "From scattered reports to smarter mining decisions"
+              </p>
             </div>
           </div>
 
@@ -106,7 +109,7 @@ export const Sidebar: React.FC = () => {
             type="button"
             id="btn-close-mobile-sidebar"
             onClick={() => setIsMobileNavOpen(false)}
-            className="md:hidden p-1.5 rounded-lg text-[#8F9BAE] hover:text-white hover:bg-[#1E293B] transition-colors cursor-pointer"
+            className="md:hidden p-1.5 rounded-lg text-[#8F9BAE] hover:text-white hover:bg-[#112D4E] transition-colors cursor-pointer"
             title="Close navigation"
           >
             <X className="w-5 h-5" />
@@ -115,8 +118,8 @@ export const Sidebar: React.FC = () => {
 
         {/* Navigation Links */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-[#64748B]">
-            {currentUser.role === 'admin' ? 'Governance & Intelligence' : 'Officer Workstation'}
+          <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-[#60A5FA] font-bold">
+            {currentUser.role === 'admin' ? 'GOVERNANCE & AUDIT' : 'TECHNICAL WORKSTATION'}
           </div>
 
           {navItems.map((item) => {
@@ -128,14 +131,14 @@ export const Sidebar: React.FC = () => {
                 key={item.id}
                 id={`nav-item-${item.id}`}
                 onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all group cursor-pointer ${
                   isActive
-                    ? 'bg-[#C8892E] text-[#141C2B] font-semibold shadow-sm'
-                    : 'text-[#CBD5E1] hover:bg-[#1E293B] hover:text-white'
+                    ? 'bg-[#00529B] text-white font-semibold shadow-md shadow-[#00529B]/30'
+                    : 'text-[#94A3B8] hover:bg-[#112D4E] hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#141C2B]' : 'text-[#8F9BAE] group-hover:text-[#C8892E] transition-colors'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#64748B] group-hover:text-[#38BDF8] transition-colors'}`} />
                   <span>{item.label}</span>
                 </div>
 
@@ -143,13 +146,13 @@ export const Sidebar: React.FC = () => {
                   <div className="flex items-center gap-1">
                     {item.urgentBadge && item.urgentBadge > 0 ? (
                       <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
-                        isActive ? 'bg-[#991B1B] text-white' : 'bg-[#DC2626] text-white animate-pulse'
+                        isActive ? 'bg-[#DC2626] text-white' : 'bg-[#DC2626] text-white animate-pulse'
                       }`}>
                         {item.urgentBadge}🔴
                       </span>
                     ) : null}
                     <span className={`text-[11px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                      isActive ? 'bg-[#141C2B] text-[#C8892E]' : 'bg-[#1E293B] text-[#CBD5E1]'
+                      isActive ? 'bg-[#003B70] text-[#93C5FD]' : 'bg-[#112D4E] text-[#94A3B8]'
                     }`}>
                       {item.badge}
                     </span>
@@ -161,11 +164,11 @@ export const Sidebar: React.FC = () => {
         </nav>
 
         {/* User Footer Card */}
-        <div className="p-3 border-t border-[#1E293B] bg-[#0E1522]">
+        <div className="p-3 border-t border-[#1E3A5F] bg-[#071320]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-[#243147] border border-[#334155] flex items-center justify-center text-xs font-mono font-bold text-[#CBD5E1]">
-                {currentUser.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+              <div className="w-8 h-8 rounded-full bg-[#D97706] text-white flex items-center justify-center text-xs font-sans font-bold flex-shrink-0 shadow-xs">
+                {currentUser.name.charAt(0).toUpperCase()}
               </div>
               <div className="truncate">
                 <p className="text-xs font-semibold text-white truncate">{currentUser.name}</p>
@@ -177,7 +180,7 @@ export const Sidebar: React.FC = () => {
                 logout();
                 setIsMobileNavOpen(false);
               }}
-              className="p-1.5 text-[#8F9BAE] hover:text-[#EF4444] hover:bg-[#1E293B] rounded transition-colors cursor-pointer"
+              className="p-1.5 text-[#8F9BAE] hover:text-[#EF4444] hover:bg-[#112D4E] rounded-lg transition-colors cursor-pointer"
               title="Sign Out"
             >
               <LogOut className="w-4 h-4" />

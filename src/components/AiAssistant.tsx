@@ -898,21 +898,22 @@ export const AiAssistant: React.FC = () => {
   });
 
   return (
-    <div id="ai-assistant-view" className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-7 max-w-7xl mx-auto">
+    <div id="ai-assistant-view" className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 max-w-7xl mx-auto">
       {/* Top Banner: Strict Grounding Directives */}
-      <div className="bg-[#141C2B] text-white border border-[#1E293B] rounded-xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white text-[#0B2238] border border-[#D1DCE5] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif font-bold text-lg sm:text-xl text-white">
-            Ask Governed CMPDI & CIL Records
+          <h2 className="font-sans font-bold text-base sm:text-lg text-[#0B2238] flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#00529B]" />
+            <span>Ask Governed CMPDI & CIL Records</span>
           </h2>
-          <p className="text-xs text-[#94A3B8] mt-0.5">
+          <p className="text-xs text-[#64748B] mt-0.5 font-medium">
             Every sentence and metric is linked to approved repository chunks. Unverifiable questions explicitly return "Not Found".
           </p>
         </div>
       </div>
 
       {/* Main Search Input & Presets */}
-      <div className="bg-white border border-[#E4E0D6] rounded-xl p-4 sm:p-6 shadow-xs space-y-4">
+      <div className="bg-white border border-[#D1DCE5] rounded-2xl p-4 sm:p-6 shadow-xs space-y-4">
         {/* Live Microphone Voice Input Active Banner */}
         {isListening && (
           <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-xl p-3.5 sm:p-4 shadow-xs space-y-2.5 transition-all">
@@ -1010,7 +1011,7 @@ export const AiAssistant: React.FC = () => {
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             placeholder="Type or click Voice to speak your query into your microphone (e.g. reserve figures, borehole depths, DGMS setback rules, coal grades)..."
-            className="w-full p-3 sm:p-4 pb-14 sm:pb-4 pr-3 sm:pr-36 text-sm bg-[#FAF8F3] border border-[#E4E0D6] rounded-xl focus:outline-none focus:border-[#C8892E] text-[#141C2B] placeholder:text-[#94A3B8] resize-none"
+            className="w-full p-3 sm:p-4 pb-14 sm:pb-4 pr-3 sm:pr-40 text-sm bg-[#F8FAFC] border border-[#CBD5E1] rounded-2xl focus:outline-none focus:border-[#00529B] focus:bg-white text-[#0B2238] placeholder:text-[#94A3B8] resize-none transition-colors"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -1019,7 +1020,7 @@ export const AiAssistant: React.FC = () => {
             }}
           />
 
-          <div className="absolute right-3 bottom-3 flex items-center gap-1.5">
+          <div className="absolute right-3 bottom-3 flex items-center gap-2">
             {/* Voice Command Microphone Button */}
             <button
               type="button"
@@ -1030,10 +1031,10 @@ export const AiAssistant: React.FC = () => {
                   ? 'Click to stop recording voice'
                   : 'Click or press Ctrl+Space to speak your own question using microphone'
               }
-              className={`px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer select-none ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer select-none ${
                 isListening
                   ? 'bg-[#DC2626] hover:bg-[#B91C1C] text-white ring-2 ring-red-400 ring-offset-1 border border-[#991B1B] animate-pulse'
-                  : 'bg-[#FAF8F3] hover:bg-[#EFEBE2] text-[#141C2B] border border-[#E4E0D6] hover:border-[#C8892E]'
+                  : 'bg-white hover:bg-[#F1F5F9] text-[#0B2238] border border-[#CBD5E1] hover:border-[#00529B]'
               }`}
             >
               {isListening ? (
@@ -1048,9 +1049,9 @@ export const AiAssistant: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Mic className="w-4 h-4 text-[#C8892E]" />
+                  <Mic className="w-4 h-4 text-[#D97706]" />
                   <span className="inline text-[11px] font-medium">Voice</span>
-                  <span className="hidden sm:inline-block font-mono text-[9px] text-[#64748B] bg-white px-1 py-0.5 rounded border border-[#E4E0D6]">
+                  <span className="hidden sm:inline-block font-mono text-[9px] text-[#64748B] bg-[#F1F5F9] px-1 py-0.5 rounded border border-[#E2E8F0]">
                     Ctrl+Space
                   </span>
                 </>
@@ -1062,17 +1063,17 @@ export const AiAssistant: React.FC = () => {
               type="submit"
               id="btn-submit-ai-question"
               disabled={isSearching || !question.trim()}
-              className="px-3.5 py-2 bg-[#141C2B] hover:bg-[#1E293B] disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-4 py-2 bg-[#D97706] hover:bg-[#B45309] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               {isSearching ? (
                 <>
-                  <Sparkles className="w-3.5 h-3.5 text-[#C8892E] animate-spin" />
+                  <Sparkles className="w-3.5 h-3.5 text-white animate-spin" />
                   <span>Retrieving...</span>
                 </>
               ) : (
                 <>
                   <span>Ask</span>
-                  <Send className="w-3.5 h-3.5 text-[#C8892E]" />
+                  <Send className="w-3.5 h-3.5 text-white" />
                 </>
               )}
             </button>
@@ -1175,16 +1176,16 @@ export const AiAssistant: React.FC = () => {
 
         {/* Preset Query Chips (Section 5.5 Spec) */}
         <div>
-          <div className="text-[11px] font-mono uppercase tracking-wider text-[#64748B] mb-2 font-semibold flex items-center justify-between">
+          <div className="text-[11px] font-mono uppercase tracking-wider text-[#0B2238] mb-2.5 font-bold flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <Compass className="w-3.5 h-3.5 text-[#C8892E]" />
+              <Compass className="w-3.5 h-3.5 text-[#D97706]" />
               <span>Preset Technical Inquiries ({selectedSubsidiary === 'ALL' ? 'All Subsidiaries' : `${selectedSubsidiary} Scope`}):</span>
             </div>
             {selectedSubsidiary !== 'ALL' && (
               <button
                 type="button"
                 onClick={() => setSelectedSubsidiary('ALL')}
-                className="text-[10px] text-[#C8892E] hover:underline font-mono cursor-pointer"
+                className="text-[10px] text-[#D97706] hover:underline font-mono cursor-pointer"
               >
                 Reset to All CIL Subsidiaries
               </button>
@@ -1199,7 +1200,7 @@ export const AiAssistant: React.FC = () => {
                   setQuestion(pq);
                   handleAsk(pq);
                 }}
-                className="text-left text-xs bg-[#FAF8F3] hover:bg-[#FDFBF7] text-[#334155] hover:text-[#141C2B] px-3 py-1.5 rounded-lg border border-[#E4E0D6] hover:border-[#C8892E] transition-all font-medium cursor-pointer"
+                className="text-left text-xs bg-[#F8FAFC] hover:bg-[#F0F4F8] text-[#1E293B] hover:text-[#00529B] px-3.5 py-2 rounded-xl border border-[#CBD5E1] hover:border-[#00529B] transition-all font-medium cursor-pointer shadow-2xs"
               >
                 {pq}
               </button>
@@ -1215,7 +1216,7 @@ export const AiAssistant: React.FC = () => {
           {isSearching && (
             <div className="bg-white border border-[#E4E0D6] rounded-xl p-8 text-center space-y-3">
               <Sparkles className="w-8 h-8 text-[#C8892E] animate-spin mx-auto" />
-              <h3 className="font-serif font-bold text-base text-[#141C2B]">
+              <h3 className="font-sans font-bold text-base text-[#141C2B]">
                 Cross-Referencing Approved Chunks...
               </h3>
               <p className="text-xs text-[#64748B] font-mono">
@@ -1348,7 +1349,7 @@ export const AiAssistant: React.FC = () => {
                   <div className="py-8 text-center bg-[#FAF8F3] rounded-lg border border-dashed border-[#E4E0D6] p-6 space-y-4">
                     <AlertCircle className="w-8 h-8 text-[#DC2626] mx-auto" />
                     <div>
-                      <p className="font-serif font-bold text-base text-[#141C2B]">
+                      <p className="font-sans font-bold text-base text-[#141C2B]">
                         No supporting information was found in the available organizational documents.
                       </p>
                       <p className="text-xs text-[#64748B] max-w-md mx-auto mt-1">
@@ -1454,7 +1455,7 @@ export const AiAssistant: React.FC = () => {
                         </div>
 
                         {/* Document Title */}
-                        <h4 className="font-serif font-bold text-sm sm:text-base text-[#141C2B] leading-snug group-hover:text-[#C8892E] transition-colors">
+                        <h4 className="font-sans font-bold text-sm sm:text-base text-[#141C2B] leading-snug group-hover:text-[#C8892E] transition-colors">
                           {citation.documentTitle}
                         </h4>
 
@@ -1463,7 +1464,7 @@ export const AiAssistant: React.FC = () => {
                           <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#64748B] mb-1">
                             Verified Source Excerpt:
                           </div>
-                          <p className="text-xs sm:text-[13px] text-[#334155] leading-relaxed italic font-serif">
+                          <p className="text-xs sm:text-[13px] text-[#334155] leading-relaxed italic font-sans">
                             "{citation.excerpt}"
                           </p>
                         </div>

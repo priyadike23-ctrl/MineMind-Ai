@@ -63,14 +63,14 @@ export const Header: React.FC = () => {
   const sizeMb = ((offlineStorageSizeBytes || 0) / (1024 * 1024)).toFixed(1);
 
   return (
-    <header id="minemind-header" className="bg-white border-b border-[#E4E0D6] px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shadow-xs sticky top-0 z-20 transition-colors">
-      {/* Mobile Hamburger & View Title */}
-      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+    <header id="minemind-header" className="bg-[#0B2238] border-t-2 border-[#D97706] border-b border-[#1E293B] px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shadow-md sticky top-0 z-20 transition-colors">
+      {/* Mobile Hamburger & View Title / Subtitle with Gov branding */}
+      <div className="flex items-center gap-3 min-w-0 pr-2">
         <button
           type="button"
           id="btn-toggle-mobile-menu"
           onClick={toggleMobileNav}
-          className="md:hidden p-2 rounded-lg text-[#141C2B] hover:bg-[#F1EDE4] border border-[#E4E0D6] transition-colors cursor-pointer flex-shrink-0"
+          className="md:hidden p-2 rounded-lg text-white hover:bg-[#112D4E] border border-[#1E3A5F] transition-colors cursor-pointer flex-shrink-0"
           title="Open Navigation Menu"
           aria-label="Open Navigation Menu"
         >
@@ -78,19 +78,20 @@ export const Header: React.FC = () => {
         </button>
 
         <div className="min-w-0">
-          <h1 className="font-serif font-bold text-base sm:text-lg text-[#141C2B] tracking-tight truncate flex items-center gap-2">
-            <span className="truncate">{currentViewMeta.title}</span>
-            {isUndergroundModeActive && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] px-1.5 py-0.5 rounded-full flex-shrink-0 animate-pulse">
-                <WifiOff className="w-2.5 h-2.5 text-[#D97706]" />
-                <span>OFFLINE</span>
-              </span>
-            )}
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="font-sans font-bold text-sm sm:text-base text-white tracking-tight truncate flex items-center gap-2">
+              <span className="truncate">{currentViewMeta.title}</span>
+            </h1>
+          </div>
+
+          {/* Subtitle with Ministry of Coal & Govt of India banner */}
+          <p className="text-[11px] leading-tight truncate mt-0.5 flex items-center gap-1.5">
+            <span className="text-[#F59E0B] font-semibold">भारत सरकार | Govt. of India · Ministry of Coal</span>
+          </p>
         </div>
       </div>
 
-      {/* Top Bar Controls (Offline Mode, User/Role Pill) */}
+      {/* Top Bar Controls (Offline Mode Switch, User/Role Pill) */}
       <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
         {/* Underground Mode Switch */}
         <button
@@ -98,40 +99,40 @@ export const Header: React.FC = () => {
           onClick={toggleSimulateOffline}
           title={isUndergroundModeActive 
             ? `Underground Mode active (IndexedDB storage: ${cachedDocumentIds.length} files, ${sizeMb} MB). Click to return to Cloud.` 
-            : `Online Cloud Mode. Click to simulate low-connectivity underground mine pit (${cachedDocumentIds.length} files cached).`
+            : `Central Cloud Mode. Click to simulate low-connectivity underground mine pit (${cachedDocumentIds.length} files cached).`
           }
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
             isUndergroundModeActive
               ? 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A] hover:bg-[#FDE68A]'
-              : 'bg-[#FAF8F3] text-[#141C2B] border-[#E4E0D6] hover:bg-[#EFEBE2]'
+              : 'bg-[#112D4E]/90 text-[#93C5FD] border-[#1E4976] hover:bg-[#1B3E68]'
           }`}
         >
           {isUndergroundModeActive ? (
             <>
               <WifiOff className="w-3.5 h-3.5 text-[#D97706]" />
-              <span className="font-semibold hidden sm:inline">Underground Pit</span>
+              <span className="font-semibold text-[11px]">Underground Pit</span>
             </>
           ) : (
             <>
-              <Wifi className="w-3.5 h-3.5 text-[#16A34A]" />
-              <span className="font-semibold hidden sm:inline">Online</span>
+              <Wifi className="w-3.5 h-3.5 text-[#38BDF8]" />
+              <span className="font-semibold text-[11px] hidden sm:inline">Cloud Active</span>
             </>
           )}
         </button>
 
-        {/* 3. Current User & Role Pill */}
+        {/* Current User & Role Pill */}
         <div 
           onClick={() => setActiveView('settings')}
-          className="flex items-center gap-2 bg-[#141C2B] text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-xs cursor-pointer hover:bg-[#1E293B] transition-colors shadow-2xs"
+          className="flex items-center gap-2 bg-[#0E1D2F] hover:bg-[#142942] border border-[#1E3A5F] text-white px-2.5 sm:px-3 py-1 rounded-full text-xs cursor-pointer transition-all shadow-xs"
           title={`Logged in as ${currentUser.name} (${currentUser.role.toUpperCase()}) - ${currentUser.subsidiary}. Click to manage settings.`}
         >
-          <div className="w-5 h-5 rounded-full bg-[#C8892E] text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0">
-            {currentUser.name.charAt(0)}
+          <div className="w-6 h-6 rounded-full bg-[#D97706] text-white flex items-center justify-center font-bold text-[11px] flex-shrink-0 shadow-xs">
+            {currentUser.name.charAt(0).toUpperCase()}
           </div>
-          <div className="hidden sm:block text-left">
-            <div className="font-bold text-[11px] leading-tight truncate max-w-[110px]">{currentUser.name}</div>
-            <div className="text-[9px] font-mono text-[#94A3B8] uppercase leading-none">
-              {currentUser.role === 'admin' ? 'Central Admin' : `${currentUser.subsidiary} Officer`}
+          <div className="text-left pr-1">
+            <div className="font-bold text-[11px] leading-tight truncate max-w-[110px] text-white">{currentUser.name}</div>
+            <div className="text-[9px] font-mono text-[#F59E0B] font-semibold uppercase leading-none">
+              {currentUser.role === 'admin' ? 'Central Admin' : `${currentUser.subsidiary} HQ`}
             </div>
           </div>
         </div>

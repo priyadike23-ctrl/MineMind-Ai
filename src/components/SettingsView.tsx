@@ -112,7 +112,7 @@ export const SettingsView: React.FC = () => {
             <Settings className="w-5 h-5 text-[#C8892E]" />
           </div>
           <div>
-            <h2 className="font-serif font-bold text-lg text-[#141C2B]">
+            <h2 className="font-sans font-bold text-lg text-[#141C2B]">
               Settings & Preferences
             </h2>
             <p className="text-xs text-[#64748B]">
@@ -133,7 +133,7 @@ export const SettingsView: React.FC = () => {
         <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="font-serif font-bold text-sm text-[#141C2B] flex items-center gap-2">
+              <h3 className="font-sans font-bold text-sm text-[#141C2B] flex items-center gap-2">
                 <Sun className="w-4 h-4 text-[#C8892E]" />
                 <span>Appearance Theme</span>
               </h3>
@@ -202,7 +202,7 @@ export const SettingsView: React.FC = () => {
         <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="font-serif font-bold text-sm text-[#141C2B] flex items-center gap-2">
+              <h3 className="font-sans font-bold text-sm text-[#141C2B] flex items-center gap-2">
                 <Volume2 className="w-4 h-4 text-[#C8892E]" />
                 <span>Sound & Audio Effects</span>
               </h3>
@@ -259,7 +259,7 @@ export const SettingsView: React.FC = () => {
         <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="font-serif font-bold text-sm text-[#141C2B] flex items-center gap-2">
+              <h3 className="font-sans font-bold text-sm text-[#141C2B] flex items-center gap-2">
                 <Bell className="w-4 h-4 text-[#C8892E]" />
                 <span>In-App Notifications & Alerts</span>
               </h3>
@@ -287,7 +287,7 @@ export const SettingsView: React.FC = () => {
         <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
-              <h3 className="font-serif font-bold text-sm text-[#141C2B] flex items-center gap-2">
+              <h3 className="font-sans font-bold text-sm text-[#141C2B] flex items-center gap-2">
                 <HardDrive className="w-4 h-4 text-[#C8892E]" />
                 <span>Offline Storage & Pit Cache</span>
               </h3>
@@ -311,7 +311,7 @@ export const SettingsView: React.FC = () => {
                 <span className="text-[11px] font-medium">Downloaded Files</span>
                 <FileCheck2 className="w-3.5 h-3.5 text-[#C8892E]" />
               </div>
-              <div className="font-serif font-bold text-lg text-[#141C2B]">
+              <div className="font-sans font-bold text-lg text-[#141C2B]">
                 {cachedDocumentIds.length} <span className="text-xs font-normal text-[#64748B]">/ {documents.length} docs</span>
               </div>
               <div className="text-[10px] text-[#166534] font-medium mt-1">
@@ -324,7 +324,7 @@ export const SettingsView: React.FC = () => {
                 <span className="text-[11px] font-medium">Storage Consumed</span>
                 <HardDrive className="w-3.5 h-3.5 text-[#C8892E]" />
               </div>
-              <div className="font-serif font-bold text-lg text-[#141C2B]">
+              <div className="font-sans font-bold text-lg text-[#141C2B]">
                 {((offlineStorageSizeBytes || 0) / (1024 * 1024)).toFixed(2)}{' '}
                 <span className="text-xs font-normal text-[#64748B]">MB</span>
               </div>
@@ -338,7 +338,7 @@ export const SettingsView: React.FC = () => {
                 <span className="text-[11px] font-medium">Knowledge Chunks</span>
                 <Layers className="w-3.5 h-3.5 text-[#C8892E]" />
               </div>
-              <div className="font-serif font-bold text-lg text-[#141C2B]">
+              <div className="font-sans font-bold text-lg text-[#141C2B]">
                 {chunks.length}{' '}
                 <span className="text-xs font-normal text-[#64748B]">vectors</span>
               </div>
