@@ -20,7 +20,6 @@ import {
   Timer,
   FileCheck2,
   Bot,
-  Play,
   Info,
   HelpCircle,
   Calculator,
@@ -114,31 +113,6 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <button
-              id="btn-admin-quick-demo-mismatch"
-              onClick={() => {
-                setActiveView('approval-queue');
-                setTimeout(() => {
-                  const targetElement = document.getElementById('queue-item-doc-cmpdi-hq-984') || 
-                                       document.getElementById('queue-item-ver_cmpdi_hq_984_01') ||
-                                       document.querySelector('[data-doc-code*="CMPDI HQ-984"]') ||
-                                       document.querySelector('[data-doc-code*="HQ-984"]');
-                  if (targetElement) {
-                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    targetElement.classList.add('ring-4', 'ring-[#DC2626]', 'ring-offset-2', 'transition-all', 'duration-500');
-                    setTimeout(() => {
-                      targetElement.classList.remove('ring-4', 'ring-[#DC2626]', 'ring-offset-2');
-                    }, 3500);
-                  }
-                }, 150);
-              }}
-              className="px-2.5 py-1.5 rounded-lg bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-              title="Shortcut: Jump directly to Category Mismatch item"
-            >
-              <Play className="w-3 h-3 fill-current" />
-              <span>Demo Mismatch</span>
-            </button>
-
             <button
               id="btn-admin-bulk-routine"
               onClick={() => bulkApproveRoutine()}

@@ -112,31 +112,6 @@ const MainLayout: React.FC = () => {
     return <LoginScreen />;
   }
 
-  const renderActiveView = () => {
-    switch (activeView) {
-      case 'dashboard':
-        return currentUser.role === 'admin' ? <AdminDashboard /> : <EmployeeDashboard />;
-      case 'knowledge':
-        return <KnowledgeCenter />;
-      case 'ai-assistant':
-        return <AiAssistant />;
-      case 'my-updates':
-        return <MyUpdates />;
-      case 'reports':
-        return <ReportGenerator />;
-      case 'approval-queue':
-        return <ApprovalQueue />;
-      case 'ai-insights':
-        return <AiInsights />;
-      case 'audit-trail':
-        return <AuditTrail />;
-      case 'settings':
-        return <SettingsView />;
-      default:
-        return currentUser.role === 'admin' ? <AdminDashboard /> : <EmployeeDashboard />;
-    }
-  };
-
   return (
     <div id="minemind-root-layout" className="flex h-screen w-full bg-[#F7F5F0] overflow-hidden">
       {/* Fixed Left Sidebar */}
@@ -147,9 +122,41 @@ const MainLayout: React.FC = () => {
         {/* Top Header */}
         <Header />
 
-        {/* Dynamic View Canvas */}
+        {/* 
+          Data Retention Strategy:
+          Portal views remain mounted in the DOM using display-toggling (hidden/block).
+          This preserves user-entered data, in-flight multi-step report wizards, AI intent extractions,
+          live chat context, selected checkboxes, validation discrepancies, and active modals
+          when navigating between portal sections.
+        */}
         <main className="flex-1 overflow-y-auto bg-[#F7F5F0]">
-          {renderActiveView()}
+          <div className={activeView === 'dashboard' ? 'block min-h-full' : 'hidden'} aria-hidden={activeView !== 'dashboard'}>
+            {currentUser.role === 'admin' ? <AdminDashboard /> : <EmployeeDashboard />}
+          </div>
+          <div className={activeView === 'knowledge' ? 'block min-h-full' : 'hidden'} aria-hidden={activeView !== 'knowledge'}>
+            <KnowledgeCenter />
+          </div>
+          <div className={activeView === 'ai-assistant' ? 'block min-h-full' : 'hidden'} aria-hidden={activeView !== 'ai-assistant'}>
+            <AiAssistant />
+          </div>
+          <div className={activeView === 'my-updates' ? 'block min-h-full' : 'hidden'} aria-hidden={activeView !== 'my-updates'}>
+            <MyUpdates />
+          </div>
+          <div className={activeView === 'reports' ? 'block min-h-full' : 'hidden'} aria-hidden={activeView !== 'reports'}>
+            <ReportGenerator />
+          </div>
+          <div className={activeView === 'approval-queue' ? 'block min-h-full' : 'hidden'} aria-hidden={activeView !== 'approval-queue'}>
+            <ApprovalQueue />
+          </div>
+          <div className={activeView === 'ai-insights' ? 'block min-h-full' : 'hidden'} aria-hidden={activeView !== 'ai-insights'}>
+            <AiInsights />
+          </div>
+          <div className={activeView === 'audit-trail' ? 'block min-h-full' : 'hidden'} aria-hidden={activeView !== 'audit-trail'}>
+            <AuditTrail />
+          </div>
+          <div className={activeView === 'settings' ? 'block min-h-full' : 'hidden'} aria-hidden={activeView !== 'settings'}>
+            <SettingsView />
+          </div>
         </main>
       </div>
 

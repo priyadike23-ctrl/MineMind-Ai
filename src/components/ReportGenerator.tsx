@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf';
 import Markdown from 'react-markdown';
 import { useApp } from '../context/AppContext';
 import { sounds } from '../utils/soundEffects';
+import { useSessionState } from '../utils/usePersistentState';
 import { ReportRecord, ReportType, Subsidiary, Document as KMDocument, SourceCitation } from '../types';
 import {
   FileText,
@@ -230,18 +231,18 @@ export const ReportGenerator: React.FC = () => {
     setActiveCitationForModal
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
+  const [activeTab, setActiveTab] = useSessionState<'create' | 'history'>('report_active_tab', 'create');
 
   // 5-Step Wizard State: 1 Request, 2 AI Understanding, 3 AI Data Discovery, 4 AI Validation, 5 Synthesis
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const [selectedTemplate, setSelectedTemplate] = useState<ReportType>('production_variance');
-  const [reportPeriod, setReportPeriod] = useState<string>('FY 2025-26 (Q3/Q4)');
-  const [reportSubsidiary, setReportSubsidiary] = useState<Subsidiary | 'ALL'>('SECL');
+  const [selectedTemplate, setSelectedTemplate] = useSessionState<ReportType>('report_template', 'production_variance');
+  const [reportPeriod, setReportPeriod] = useSessionState<string>('report_period', 'FY 2025-26 (Q3/Q4)');
+  const [reportSubsidiary, setReportSubsidiary] = useSessionState<Subsidiary | 'ALL'>('report_subsidiary', 'SECL');
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
 
   // Step 1: AI freeform request vs official template
   const [requestMode, setRequestMode] = useState<'ai' | 'template' | null>(null);
-  const [aiFreeformRequest, setAiFreeformRequest] = useState<string>('');
+  const [aiFreeformRequest, setAiFreeformRequest] = useSessionState<string>('report_ai_freeform', '');
 
   // Step 2: AI understanding (real extraction)
   const [isExtractingIntent, setIsExtractingIntent] = useState<boolean>(false);

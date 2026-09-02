@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
+import { useSessionState } from '../utils/usePersistentState';
 import { Chunk, SourceCitation, QueryRecord } from '../types';
 import { queryOfflineKnowledgeBase } from '../utils/offlineRAG';
 import { sounds } from '../utils/soundEffects';
@@ -83,7 +84,7 @@ export const AiAssistant: React.FC = () => {
     cachedDocumentIds
   } = useApp();
 
-  const [question, setQuestion] = useState<string>('');
+  const [question, setQuestion] = useSessionState<string>('ai_assistant_question', '');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [isOfflineResult, setIsOfflineResult] = useState<boolean>(false);
   const [activeResult, setActiveResult] = useState<{
@@ -95,7 +96,6 @@ export const AiAssistant: React.FC = () => {
     draftOfficialReply?: string;
   } | null>(null);
 
-  const [showSimilarCases, setShowSimilarCases] = useState<boolean>(true);
   const [showDraftReply, setShowDraftReply] = useState<boolean>(false);
   const [copiedAnswer, setCopiedAnswer] = useState<boolean>(false);
   const [copiedDraft, setCopiedDraft] = useState<boolean>(false);
@@ -463,17 +463,6 @@ export const AiAssistant: React.FC = () => {
     }
   };
 
-  // Filter similar cases if search query matches tags
-  const matchedCases = similarCases.filter(sc => {
-    if (!question) return true;
-    const qLower = question.toLowerCase();
-    return sc.tags.some(t => qLower.includes(t.toLowerCase())) || 
-           sc.subsidiary.toLowerCase().includes(qLower) ||
-           qLower.includes('slope') && sc.title.includes('Slope') ||
-           qLower.includes('water') && sc.title.includes('Water') ||
-           qLower.includes('hydrogeology') && sc.title.includes('Groundwater');
-  });
-
   return (
     <div id="ai-assistant-view" className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-7 max-w-7xl mx-auto">
       {/* Top Banner: Strict Grounding Directives */}
@@ -485,18 +474,6 @@ export const AiAssistant: React.FC = () => {
           <p className="text-xs text-[#94A3B8] mt-0.5">
             Every sentence and metric is linked to approved repository chunks. Unverifiable questions explicitly return "Not Found".
           </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs font-mono text-[#CBD5E1] cursor-pointer bg-[#192234] px-3 py-1.5 rounded-lg border border-[#334155]">
-            <input
-              type="checkbox"
-              checked={showSimilarCases}
-              onChange={(e) => setShowSimilarCases(e.target.checked)}
-              className="rounded text-[#C8892E] focus:ring-0"
-            />
-            <span>Historical Precedents Panel</span>
-          </label>
         </div>
       </div>
 
@@ -670,8 +647,8 @@ export const AiAssistant: React.FC = () => {
 
       {/* Answer & Citations Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Answer Main Panel: 8 Cols (or 12 if similar cases hidden) */}
-        <div className={showSimilarCases ? "lg:col-span-8 space-y-6" : "lg:col-span-12 space-y-6"}>
+        {/* Answer Main Panel: Full Width */}
+        <div className="lg:col-span-12 space-y-6">
           {isSearching && (
             <div className="bg-white border border-[#E4E0D6] rounded-xl p-8 text-center space-y-3">
               <Sparkles className="w-8 h-8 text-[#C8892E] animate-spin mx-auto" />
@@ -892,8 +869,7 @@ export const AiAssistant: React.FC = () => {
                     {activeResult.citations.map((citation, idx) => (
                       <div
                         key={idx}
-                        onClick={() => setActiveCitationForModal(citation)}
-                        className="p-4 sm:p-5 bg-[#FAF8F3] hover:bg-[#FDFBF7] border border-[#E4E0D6] hover:border-[#C8892E] rounded-xl cursor-pointer transition-all shadow-2xs group space-y-3"
+                        className="p-4 sm:p-5 bg-[#FAF8F3] hover:bg-[#FDFBF7] border border-[#E4E0D6] hover:border-[#C8892E] rounded-xl transition-all shadow-2xs group space-y-3"
                       >
                         {/* Citation Badges Row */}
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -914,26 +890,44 @@ export const AiAssistant: React.FC = () => {
                         </div>
 
                         {/* Document Title */}
-                        <h4 className="font-serif font-bold text-sm sm:text-base text-[#141C2B] leading-snug group-hover:text-[#C8892E] transition-colors">
+                        <h4 
+                          onClick={() => setActiveCitationForModal(citation)}
+                          className="font-serif font-bold text-sm sm:text-base text-[#141C2B] leading-snug hover:text-[#C8892E] cursor-pointer transition-colors"
+                        >
                           {citation.documentTitle}
                         </h4>
 
                         {/* Verified Excerpt Box */}
-                        <div className="bg-white p-3.5 rounded-lg border border-[#E4E0D6] group-hover:border-[#D4CEBF] transition-colors">
-                          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#64748B] mb-1">
-                            Verified Source Excerpt:
+                        <div 
+                          onClick={() => setActiveCitationForModal(citation)}
+                          className="bg-white p-3.5 rounded-lg border border-[#E4E0D6] group-hover:border-[#D4CEBF] cursor-pointer transition-colors"
+                        >
+                          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#64748B] mb-1 flex items-center justify-between">
+                            <span>Verified Source Excerpt:</span>
+                            <span className="text-[#C8892E] text-[10px] font-normal">Click to open</span>
                           </div>
                           <p className="text-xs sm:text-[13px] text-[#334155] leading-relaxed italic font-serif">
                             "{citation.excerpt}"
                           </p>
                         </div>
 
-                        {/* Card Action Link */}
-                        <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-[#C8892E] group-hover:text-[#92400E]">
-                          <span className="font-medium">Direct Grounding Vector Chunk</span>
-                          <span className="font-bold flex items-center gap-1 group-hover:underline">
-                            Inspect Verified Chunk & Hash →
-                          </span>
+                        {/* Card Action Buttons: PDF View + Excerpt Inspection */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#EFEBE2] text-[11px] font-mono">
+                          <button
+                            type="button"
+                            onClick={() => setActiveCitationForModal(citation)}
+                            className="px-3 py-1.5 bg-[#C8892E] hover:bg-[#B37722] text-white font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>Open Statutory PDF View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveCitationForModal(citation)}
+                            className="text-[#64748B] hover:text-[#141C2B] font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                          >
+                            <span>Inspect Chunk & Hash →</span>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -976,57 +970,6 @@ export const AiAssistant: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Similar Historical Cases Side Panel: 4 Cols (Section 5.5 Spec) */}
-        {showSimilarCases && (
-          <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-[#EFEBE2]">
-                <div className="flex items-center gap-1.5">
-                  <History className="w-4 h-4 text-[#C8892E]" />
-                  <h3 className="font-serif font-bold text-sm text-[#141C2B]">
-                    Similar Historical Precedents
-                  </h3>
-                </div>
-                <span className="text-[10px] font-mono bg-[#EFEBE2] px-1.5 py-0.5 rounded text-[#64748B]">
-                  {matchedCases.length} records
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {matchedCases.slice(0, 3).map((item) => (
-                  <div 
-                    key={item.id}
-                    className="p-3 bg-[#FAF8F3] border border-[#E4E0D6] rounded-lg text-xs space-y-1.5 hover:border-[#C8892E] transition-all"
-                  >
-                    <div className="flex items-center justify-between text-[10px] font-mono text-[#64748B]">
-                      <span className="font-bold text-[#141C2B]">{item.subsidiary} · {item.year}</span>
-                      <span className="text-[#16A34A] font-bold">{item.outcome}</span>
-                    </div>
-                    <h4 className="font-bold text-[#141C2B] text-xs">
-                      {item.title}
-                    </h4>
-                    <p className="text-[11px] text-[#475569] leading-relaxed">
-                      {item.summary}
-                    </p>
-                    <div className="pt-1 flex items-center justify-between text-[10px] font-mono text-[#C8892E]">
-                      <span>Ref: {item.referenceDocCode}</span>
-                      <button 
-                        onClick={() => {
-                          setQuestion(`Tell me more about precedent ${item.referenceDocCode} in ${item.subsidiary}`);
-                          handleAsk(`Tell me more about precedent ${item.referenceDocCode} in ${item.subsidiary}`);
-                        }}
-                        className="hover:underline"
-                      >
-                        Ask this case →
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Voice Dictation & Spoken Inquiry Assistant Modal */}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useSessionState } from '../utils/usePersistentState';
 import { Document, DocumentVersion, Subsidiary, ApprovalPriority, UserAccessRequest } from '../types';
 import { getStorageSignedUrl } from '../services/supabaseDataService';
 import { evaluateDocumentCompliance } from '../utils/complianceEngine';
@@ -51,11 +52,11 @@ export const ApprovalQueue: React.FC = () => {
     rejectAccessRequest
   } = useApp();
 
-  const [activeQueueTab, setActiveQueueTab] = useState<'pending' | 'access-requests'>('pending');
-  const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
-  const [queueSubsidiaryFilter, setQueueSubsidiaryFilter] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sortBy, setSortBy] = useState<'priority' | 'newest' | 'oldest' | 'compliance'>('priority');
+  const [activeQueueTab, setActiveQueueTab] = useSessionState<'pending' | 'access-requests'>('approval_tab', 'pending');
+  const [priorityFilter, setPriorityFilter] = useSessionState<string>('approval_priority_filter', 'ALL');
+  const [queueSubsidiaryFilter, setQueueSubsidiaryFilter] = useSessionState<string>('approval_sub_filter', 'ALL');
+  const [searchQuery, setSearchQuery] = useSessionState<string>('approval_search_query', '');
+  const [sortBy, setSortBy] = useSessionState<'priority' | 'newest' | 'oldest' | 'compliance'>('approval_sort_by', 'priority');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 8;
   const [selectedQueueItem, setSelectedQueueItem] = useState<{ doc: Document; version: DocumentVersion } | null>(null);
