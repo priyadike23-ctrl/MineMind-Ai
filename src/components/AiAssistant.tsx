@@ -264,12 +264,26 @@ export const AiAssistant: React.FC = () => {
   const startLiveSpeechRecognition = async () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
+    // Try to get audio stream for mic permission & real-time visual level meter non-blockingly
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        startAudioLevelMeter(stream);
+        setPermissionState('granted');
+        setPermissionErrorType(null);
+      } catch (err: any) {
+        console.warn('Microphone stream permission note:', err);
+        // Continue even if getUserMedia threw, as SpeechRecognition might still be permitted or handled separately
+      }
+    }
+
     if (!SpeechRecognition) {
       setToastMessage({
         type: 'warning',
-        text: 'Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari, or type your query.'
+        text: 'Speech recognition is not supported in this browser environment. Please type your query.'
       });
-      setSpeechStatusText('Web Speech API not supported in this browser. Please type inquiry.');
+      setSpeechStatusText('Speech recognition not supported in browser.');
       return;
     }
 
@@ -279,29 +293,6 @@ export const AiAssistant: React.FC = () => {
         recognitionRef.current.abort();
       } catch {}
       recognitionRef.current = null;
-    }
-
-    // Try to get audio stream for mic permission & real-time visual level meter
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaStreamRef.current = stream;
-        startAudioLevelMeter(stream);
-        setPermissionState('granted');
-        setPermissionErrorType(null);
-      }
-    } catch (err: any) {
-      console.warn('Microphone permission request status:', err);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setPermissionState('denied');
-        setPermissionErrorType('denied');
-        setToastMessage({
-          type: 'warning',
-          text: 'Microphone access was denied. Please allow microphone permission in your browser address bar to dictate with your voice.'
-        });
-        setSpeechStatusText('Microphone permission denied. Allow mic in browser settings.');
-        return;
-      }
     }
 
     try {
@@ -349,7 +340,7 @@ export const AiAssistant: React.FC = () => {
       };
 
       recognizer.onerror = (event: any) => {
-        console.warn('Speech recognition status:', event.error);
+        console.warn('Speech recognition event error:', event.error);
 
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           setPermissionState('denied');
@@ -359,13 +350,13 @@ export const AiAssistant: React.FC = () => {
           stopAudioLevelMeter();
           setToastMessage({
             type: 'warning',
-            text: 'Microphone access denied. Please allow microphone permissions in your browser.'
+            text: 'Microphone permission denied. Please allow microphone in browser.'
           });
-          setSpeechStatusText('Microphone access blocked.');
+          setSpeechStatusText('Microphone permission blocked.');
         } else if (event.error === 'no-speech') {
           setSpeechStatusText('Listening... Speak anytime into your microphone.');
         } else if (event.error === 'network') {
-          setSpeechStatusText('Speech service network notice. Retrying voice recognition...');
+          setSpeechStatusText('Speech service network error.');
         } else {
           setSpeechStatusText(`Voice input: ${event.error}`);
         }
@@ -388,13 +379,13 @@ export const AiAssistant: React.FC = () => {
       isListeningRef.current = true;
       recognizer.start();
     } catch (err: any) {
-      console.warn('SpeechRecognition launch note:', err);
+      console.warn('SpeechRecognition start failed:', err);
       setIsListening(false);
       isListeningRef.current = false;
       stopAudioLevelMeter();
       setToastMessage({
         type: 'warning',
-        text: 'Could not initialize speech recognition. Please ensure microphone permissions are granted.'
+        text: 'Speech recognition could not be started.'
       });
       setSpeechStatusText('Voice recognition unavailable.');
     }
@@ -427,7 +418,7 @@ export const AiAssistant: React.FC = () => {
       return;
     }
 
-    // 2. Start live speech recognition with user's own microphone
+    // 2. Start live speech recognition with user's own microphone or fallback helper
     startLiveSpeechRecognition();
   };
 
