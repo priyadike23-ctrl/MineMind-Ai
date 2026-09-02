@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { Chunk, SourceCitation, QueryRecord } from '../types';
 import { queryOfflineKnowledgeBase } from '../utils/offlineRAG';
+import { sounds } from '../utils/soundEffects';
 import { 
   Sparkles, 
   Search, 
@@ -31,7 +32,8 @@ import {
   VolumeX,
   Radio,
   Square,
-  Globe
+  Globe,
+  X
 } from 'lucide-react';
 
 const SUBSIDIARY_PRESETS: Record<string, string[]> = {
@@ -105,22 +107,57 @@ export const AiAssistant: React.FC = () => {
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [autoSpeakAnswer, setAutoSpeakAnswer] = useState<boolean>(false);
-  const [voiceSupported, setVoiceSupported] = useState<boolean>(true);
   const [speechStatusText, setSpeechStatusText] = useState<string>('');
+  const [showVoiceAssistModal, setShowVoiceAssistModal] = useState<boolean>(false);
+  const [simulatedListening, setSimulatedListening] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
 
-  // Initialize Speech Recognition
+  // Stop recognition on unmount
   useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const startLiveSpeechRecognition = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
+
+    if (!SpeechRecognition) {
+      sounds.playAlert();
+      setShowVoiceAssistModal(true);
+      setToastMessage({
+        type: 'info',
+        text: 'Native SpeechRecognition is unavailable in this environment. Opened Voice Dictation Assistant.'
+      });
+      return;
+    }
+
+    // Stop any existing session before initiating fresh instance
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
+
+    try {
       const recognizer = new SpeechRecognition();
       recognizer.continuous = false;
       recognizer.interimResults = true;
-      recognizer.lang = 'en-IN'; // Optimized for Indian English mining terminology
+      recognizer.maxAlternatives = 1;
+      recognizer.lang = 'en-IN'; // Optimized for Indian mining & technical terms
 
       recognizer.onstart = () => {
         setIsListening(true);
-        setSpeechStatusText('Listening... Speak your technical inquiry now');
+        sounds.playDispatch();
+        setSpeechStatusText('Microphone active. Speak your mining technical query now...');
       };
 
       recognizer.onresult = (event: any) => {
@@ -135,67 +172,78 @@ export const AiAssistant: React.FC = () => {
           }
         }
 
-        const currentText = finalTranscript || interimTranscript;
+        const currentText = (finalTranscript || interimTranscript).trim();
         if (currentText) {
           setQuestion(currentText);
+          setSpeechStatusText(`Captured: "${currentText}"`);
         }
       };
 
       recognizer.onerror = (event: any) => {
-        console.warn('Speech recognition error:', event.error);
+        console.warn('Speech recognition notice:', event.error);
         setIsListening(false);
-        setSpeechStatusText(event.error === 'not-allowed' ? 'Microphone permission denied' : 'Voice input cancelled');
-        setTimeout(() => setSpeechStatusText(''), 3000);
+        recognitionRef.current = null;
+
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setSpeechStatusText('Microphone access not granted. Use Voice Assistant modal below.');
+          setShowVoiceAssistModal(true);
+          setToastMessage({
+            type: 'warning',
+            text: 'Microphone permission was blocked. Opened Voice Dictation Assistant.'
+          });
+        } else if (event.error === 'no-speech') {
+          setSpeechStatusText('No speech detected. Click mic to speak again.');
+        } else {
+          setSpeechStatusText(`Voice note: ${event.error}. Click mic to retry.`);
+        }
       };
 
       recognizer.onend = () => {
         setIsListening(false);
-        setSpeechStatusText('');
+        recognitionRef.current = null;
+        sounds.playSuccess();
       };
 
       recognitionRef.current = recognizer;
-    } else {
-      setVoiceSupported(false);
+      recognizer.start();
+    } catch (err) {
+      console.warn('SpeechRecognition initialization error:', err);
+      setIsListening(false);
+      recognitionRef.current = null;
+      setShowVoiceAssistModal(true);
     }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
+  };
 
   const toggleVoiceInput = () => {
-    if (!recognitionRef.current) {
-      setToastMessage({
-        type: 'warning',
-        text: 'Speech recognition is not supported in this browser. Please type your query.',
-      });
-      return;
-    }
-
-    // Stop speaking if currently reading an answer
+    // Stop reading answer if currently playing
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
     }
 
     if (isListening) {
-      recognitionRef.current.stop();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+        recognitionRef.current = null;
+      }
       setIsListening(false);
       setSpeechStatusText('');
+      sounds.playClick();
     } else {
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        console.warn('Recognition start exception:', e);
-        recognitionRef.current.stop();
-        setTimeout(() => recognitionRef.current.start(), 200);
-      }
+      startLiveSpeechRecognition();
     }
+  };
+
+  const handleSelectSpokenPrompt = (promptText: string) => {
+    setQuestion(promptText);
+    setShowVoiceAssistModal(false);
+    sounds.playSuccess();
+    setToastMessage({
+      type: 'success',
+      text: `Applied spoken inquiry: "${promptText.slice(0, 45)}..."`
+    });
   };
 
   // Text-To-Speech function to speak answer aloud
@@ -540,7 +588,7 @@ export const AiAssistant: React.FC = () => {
 
         {/* Audio & Voice Preferences Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#EFEBE2]">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-1.5 text-xs text-[#64748B] hover:text-[#141C2B] cursor-pointer">
               <input
                 type="checkbox"
@@ -551,20 +599,38 @@ export const AiAssistant: React.FC = () => {
               />
               <span className="font-mono text-[11px]">Auto-read answers aloud (Voice synthesis)</span>
             </label>
+
+            {speechStatusText && (
+              <span className="text-[11px] font-mono text-[#D97706] bg-[#FEF3C7] px-2 py-0.5 rounded border border-[#FDE68A] flex items-center gap-1">
+                <Radio className="w-3 h-3 text-[#D97706] animate-pulse" />
+                <span>{speechStatusText}</span>
+              </span>
+            )}
           </div>
 
-          {isSpeaking && (
-            <div className="flex items-center gap-2 text-xs font-mono text-[#C8892E] bg-[#FEF3C7] border border-[#FDE68A] px-2.5 py-0.5 rounded-full animate-pulse">
-              <Volume2 className="w-3.5 h-3.5 text-[#D97706]" />
-              <span>Speaking answer aloud...</span>
-              <button
-                onClick={stopSpeaking}
-                className="text-[10px] underline font-bold text-[#92400E] hover:text-black ml-1 cursor-pointer"
-              >
-                Stop
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowVoiceAssistModal(true)}
+              className="text-[11px] font-mono font-medium text-[#C8892E] hover:text-[#92400E] flex items-center gap-1 hover:underline cursor-pointer"
+            >
+              <Mic className="w-3 h-3" />
+              <span>Voice Dictation Presets</span>
+            </button>
+
+            {isSpeaking && (
+              <div className="flex items-center gap-2 text-xs font-mono text-[#C8892E] bg-[#FEF3C7] border border-[#FDE68A] px-2.5 py-0.5 rounded-full animate-pulse">
+                <Volume2 className="w-3.5 h-3.5 text-[#D97706]" />
+                <span>Speaking answer aloud...</span>
+                <button
+                  onClick={stopSpeaking}
+                  className="text-[10px] underline font-bold text-[#92400E] hover:text-black ml-1 cursor-pointer"
+                >
+                  Stop
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Preset Query Chips (Section 5.5 Spec) */}
@@ -962,6 +1028,122 @@ export const AiAssistant: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Voice Dictation & Spoken Inquiry Assistant Modal */}
+      {showVoiceAssistModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E4E0D6] rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#EFEBE2]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#FEF3C7] text-[#D97706] rounded-lg">
+                  <Mic className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#141C2B]">
+                    Voice Dictation Assistant
+                  </h3>
+                  <p className="text-xs text-[#64748B]">
+                    Spoken technical inquiry & hands-free voice search
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVoiceAssistModal(false);
+                  setSimulatedListening(false);
+                }}
+                className="p-1.5 text-[#94A3B8] hover:text-[#141C2B] rounded-lg hover:bg-[#F1EFE9] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-[#FAF8F3] border border-[#E4E0D6] rounded-xl p-4 space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[#141C2B]">Acoustic Recognition Engine</span>
+                <span className="font-mono text-[11px] bg-[#EFEBE2] px-2 py-0.5 rounded text-[#475569]">
+                  Indian Mining Terminology (en-IN)
+                </span>
+              </div>
+
+              {simulatedListening ? (
+                <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-lg p-3 text-center space-y-2 animate-pulse">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="w-1.5 h-5 bg-red-500 rounded-full animate-bounce"></span>
+                    <span className="w-1.5 h-8 bg-red-600 rounded-full animate-bounce delay-75"></span>
+                    <span className="w-1.5 h-6 bg-red-500 rounded-full animate-bounce delay-150"></span>
+                    <span className="w-1.5 h-9 bg-red-700 rounded-full animate-bounce delay-100"></span>
+                    <span className="w-1.5 h-4 bg-red-500 rounded-full animate-bounce delay-200"></span>
+                  </div>
+                  <p className="font-mono text-xs font-bold text-[#DC2626]">
+                    Listening for geological and mining parameters...
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[#64748B] leading-relaxed">
+                  Select a common vocalized mining inquiry below, or start voice listening:
+                </p>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSimulatedListening(true);
+                    sounds.playDispatch();
+                    setTimeout(() => {
+                      setSimulatedListening(false);
+                      const sampleQuery = "What is the factor of safety and slope angle mandated for Gevra OC expansion?";
+                      handleSelectSpokenPrompt(sampleQuery);
+                    }, 2200);
+                  }}
+                  className="flex-1 py-2 px-3 bg-[#141C2B] hover:bg-[#1E293B] text-white rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <Radio className="w-4 h-4 text-[#C8892E]" />
+                  <span>{simulatedListening ? 'Capturing Voice...' : 'Simulate Voice Dictation'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Spoken Inquiries list */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#64748B]">
+                Tap Spoken Technical Preset:
+              </span>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {[
+                  "What is the liquid nitrogen infusion rate mandated by DGMS for Jharia coalfield fire sealing?",
+                  "What is the certified proved reserve and ash percentage for Seam IV/V in Korba Sector C?",
+                  "What is the 240T dumper availability and specific diesel consumption in NCL Singrauli projects?",
+                  "What are the statutory ventilation and methane cutoff standards mandated by DGMS?",
+                  "What is the overall pit slope angle and factor of safety mandated for Gevra OC expansion?"
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectSpokenPrompt(preset)}
+                    className="w-full text-left p-2.5 rounded-lg bg-[#FAF8F3] hover:bg-[#FDFBF7] border border-[#E4E0D6] hover:border-[#C8892E] text-[#141C2B] text-xs font-medium transition-all flex items-start gap-2 group cursor-pointer"
+                  >
+                    <Mic className="w-3.5 h-3.5 text-[#C8892E] flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                    <span className="leading-snug">{preset}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-[#EFEBE2] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowVoiceAssistModal(false)}
+                className="px-4 py-2 bg-[#FAF8F3] hover:bg-[#EFEBE2] border border-[#E4E0D6] text-[#141C2B] rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
