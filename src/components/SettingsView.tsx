@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { sounds } from '../utils/soundEffects';
 import { 
+  getSavedGoogleClientId, 
+  saveGoogleClientId, 
+  GOOGLE_CONSOLE_CONFIG 
+} from '../googleAuth';
+import { 
   Settings, 
   Sun, 
   Moon, 
@@ -18,7 +23,10 @@ import {
   Database,
   Layers,
   FileCheck2,
-  Trash2
+  Trash2,
+  Key,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
@@ -101,6 +109,27 @@ export const SettingsView: React.FC = () => {
         text: 'In-app notifications enabled.',
       });
     }
+  };
+
+  // 4. Google Cloud Console & OAuth Settings
+  const [googleClientId, setGoogleClientId] = useState<string>(() => getSavedGoogleClientId());
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const handleSaveGoogleClientId = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveGoogleClientId(googleClientId);
+    sounds.playSuccess();
+    setToastMessage({
+      type: 'success',
+      text: 'Google OAuth Client ID saved successfully.',
+    });
+  };
+
+  const handleCopyOrigin = (url: string, keyName: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedKey(keyName);
+    sounds.playClick();
+    setTimeout(() => setCopiedKey(null), 2000);
   };
 
   return (
@@ -283,7 +312,89 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* 4. Offline Pit Cache & Local Storage Management */}
+        {/* 4. Google Cloud Console & OAuth Setup */}
+        <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <h3 className="font-sans font-bold text-sm text-[#141C2B] flex items-center gap-2">
+                <Key className="w-4 h-4 text-[#C8892E]" />
+                <span>Google Cloud Console &amp; OAuth 2.0 Client</span>
+              </h3>
+              <p className="text-xs text-[#64748B] mt-0.5 max-w-xl">
+                Configure your official Google Cloud Console Web Application credentials to enable direct single sign-on.
+              </p>
+            </div>
+
+            <a
+              href={GOOGLE_CONSOLE_CONFIG.consoleUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-xs font-bold text-[#00529B] hover:underline flex items-center gap-1 self-start"
+            >
+              <span>Google Cloud Console</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+
+          {/* Form to save Client ID */}
+          <form onSubmit={handleSaveGoogleClientId} className="space-y-2 pt-1">
+            <label className="block text-xs font-semibold text-[#141C2B]">
+              OAuth 2.0 Web Client ID
+            </label>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <input
+                type="text"
+                value={googleClientId}
+                onChange={(e) => setGoogleClientId(e.target.value)}
+                placeholder="e.g. 1234567890-abcdefg.apps.googleusercontent.com"
+                className="flex-1 px-3.5 py-2 text-xs bg-[#FAF8F3] border border-[#E4E0D6] rounded-lg focus:outline-none focus:border-[#C8892E] font-mono text-[#141C2B]"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[#141C2B] hover:bg-[#0B1528] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+              >
+                Save Client ID
+              </button>
+            </div>
+            <p className="text-[11px] text-[#64748B]">
+              Can also be defined via <code className="font-mono text-[#141C2B] bg-[#FAF8F3] px-1 py-0.5 rounded border border-[#E4E0D6]">GOOGLE_CLIENT_ID</code> in AI Studio settings.
+            </p>
+          </form>
+
+          {/* Authorized Origins Reference */}
+          <div className="pt-2 border-t border-[#EFEBE2] space-y-2">
+            <div className="text-xs font-semibold text-[#141C2B]">
+              Authorized JavaScript Origins to add in Google Cloud Console:
+            </div>
+            <div className="grid grid-cols-1 gap-1.5 font-mono text-[11px]">
+              <div className="flex items-center justify-between gap-2 p-2 bg-[#FAF8F3] rounded-lg border border-[#E4E0D6]">
+                <span className="truncate text-[#141C2B] select-all">{GOOGLE_CONSOLE_CONFIG.devUrl}</span>
+                <button
+                  type="button"
+                  onClick={() => handleCopyOrigin(GOOGLE_CONSOLE_CONFIG.devUrl, 'dev')}
+                  className="px-2 py-1 bg-white hover:bg-[#EFEBE2] border border-[#D5D0C5] rounded text-[10px] font-bold text-[#141C2B] flex items-center gap-1 cursor-pointer flex-shrink-0"
+                >
+                  {copiedKey === 'dev' ? <Check className="w-3 h-3 text-[#16A34A]" /> : <Copy className="w-3 h-3 text-[#64748B]" />}
+                  <span>{copiedKey === 'dev' ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 p-2 bg-[#FAF8F3] rounded-lg border border-[#E4E0D6]">
+                <span className="truncate text-[#141C2B] select-all">{GOOGLE_CONSOLE_CONFIG.sharedUrl}</span>
+                <button
+                  type="button"
+                  onClick={() => handleCopyOrigin(GOOGLE_CONSOLE_CONFIG.sharedUrl, 'shared')}
+                  className="px-2 py-1 bg-white hover:bg-[#EFEBE2] border border-[#D5D0C5] rounded text-[10px] font-bold text-[#141C2B] flex items-center gap-1 cursor-pointer flex-shrink-0"
+                >
+                  {copiedKey === 'shared' ? <Check className="w-3 h-3 text-[#16A34A]" /> : <Copy className="w-3 h-3 text-[#64748B]" />}
+                  <span>{copiedKey === 'shared' ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Offline Pit Cache & Local Storage Management */}
         <div className="bg-white border border-[#E4E0D6] rounded-xl p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>

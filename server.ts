@@ -751,6 +751,15 @@ ${observationsMarkdown}
     }
   });
 
+  // Google OAuth Client Configuration API
+  app.get('/api/auth/google/config', (req, res) => {
+    const clientId = (process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+    res.json({
+      clientId,
+      isConfigured: Boolean(clientId),
+    });
+  });
+
   // Vite middleware for development vs static build in production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
