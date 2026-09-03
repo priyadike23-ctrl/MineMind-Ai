@@ -125,8 +125,19 @@ export function promptGoogleLoginDirect(clientId: string): Promise<GoogleUserPro
         prompt: 'consent',
         callback: async (tokenResponse: any) => {
           if (tokenResponse.error) {
-            console.error('[Google Auth] OAuth Error:', tokenResponse);
-            return reject(new Error(tokenResponse.error_description || tokenResponse.error || 'Google authorization was cancelled or denied.'));
+            const errDescription = tokenResponse.error_description || tokenResponse.error || 'Google authorization was cancelled or denied.';
+            const isDismissed = 
+              tokenResponse.error === 'access_denied' || 
+              tokenResponse.error === 'popup_closed' || 
+              String(errDescription).toLowerCase().includes('closed') ||
+              String(errDescription).toLowerCase().includes('cancel');
+
+            if (isDismissed) {
+              console.debug('[Google Auth] Notice:', errDescription);
+            } else {
+              console.warn('[Google Auth] OAuth notice:', errDescription);
+            }
+            return reject(new Error(errDescription));
           }
 
           if (!tokenResponse.access_token) {
@@ -153,8 +164,23 @@ export function promptGoogleLoginDirect(clientId: string): Promise<GoogleUserPro
           }
         },
         error_callback: (err: any) => {
-          console.error('[Google Auth] Token client error:', err);
-          reject(new Error(err?.message || 'Google OAuth prompt encountered an error.'));
+          const rawMessage = typeof err === 'string' 
+            ? err 
+            : (err?.message || err?.type || 'Google OAuth prompt was closed or cancelled.');
+          
+          const isClosedOrCancelled = 
+            err?.type === 'popup_closed' ||
+            String(rawMessage).toLowerCase().includes('popup') ||
+            String(rawMessage).toLowerCase().includes('closed') ||
+            String(rawMessage).toLowerCase().includes('cancel');
+
+          if (isClosedOrCancelled) {
+            console.debug('[Google Auth] Popup window closed by user.');
+            return reject(new Error('Google sign-in popup was closed before completion.'));
+          }
+
+          console.warn('[Google Auth] Token client notice:', rawMessage);
+          reject(new Error(rawMessage));
         },
       });
 

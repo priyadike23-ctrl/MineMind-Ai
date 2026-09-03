@@ -65,7 +65,12 @@ export const GoogleConsoleModal: React.FC<GoogleConsoleModalProps> = ({
       await onTriggerDirectGoogleLogin(clientIdInput.trim());
       onClose();
     } catch (err: any) {
-      setModalError(err?.message || 'Failed to initialize Google Sign-in with this Client ID. Please verify your Authorized JavaScript Origins in Google Cloud Console.');
+      const msg = err?.message || '';
+      if (msg.toLowerCase().includes('closed') || msg.toLowerCase().includes('cancel')) {
+        setModalError('Google popup window was closed before completing sign-in. You can try again or use the Instant Sign-In above.');
+      } else {
+        setModalError(msg || 'Failed to initialize Google Sign-in with this Client ID. Please verify your Authorized JavaScript Origins in Google Cloud Console.');
+      }
     } finally {
       setIsConnecting(false);
     }
